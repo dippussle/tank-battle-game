@@ -584,10 +584,10 @@ class Tank {
     }
 
     update(maze) {
-        if (!this.alive) return;
-
-        // Update bullets first so they don't freeze during takeover
+        // Always update bullets, even if the tank is dead
         this.bullets.forEach(b => b.update(maze, tanks));
+
+        if (!this.alive) return;
 
         // Wireless Missile Takeover (Limit to 10s)
         if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
