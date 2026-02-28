@@ -13,7 +13,7 @@ const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
 const BULLET_SPEED = 3.5;
 const MAX_BOUNCES = 1000;
-const BULLET_LIFESPAN = 20000;
+const BULLET_LIFESPAN = 8000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
 
@@ -642,8 +642,8 @@ class Tank {
         const isShooting = keys[this.controls.fire] || this.firePressed;
         if (isShooting && Date.now() - this.lastShot > this.shootDelay) {
             if (this.bullets.filter(b => b.active).length < 5) {
-                const bulletX = this.x + Math.cos(this.turretAngle) * (TANK_SIZE * 0.8);
-                const bulletY = this.y + Math.sin(this.turretAngle) * (TANK_SIZE * 0.8);
+                const bulletX = this.x + Math.cos(this.turretAngle) * (TANK_SIZE * 1.2);
+                const bulletY = this.y + Math.sin(this.turretAngle) * (TANK_SIZE * 1.2);
 
                 let bulletType = 'normal';
                 if (this.powerUp) {
@@ -651,7 +651,13 @@ class Tank {
                     this.powerUp = null; // Use powerup once
                 }
 
-                this.bullets.push(new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType));
+                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
+                this.bullets.push(newBullet);
+
+                if (bulletType === 'wireless') {
+                    this.activeWirelessMissile = newBullet;
+                }
+
                 this.lastShot = Date.now();
             }
         }
@@ -720,6 +726,8 @@ class Tank {
                 ctx.lineTo(4, 4);
                 ctx.lineTo(-4, 4);
                 ctx.fill();
+            } else if (this.powerUp === 'wireless') {
+                ctx.fillText('W', 0, 0);
             } else {
                 ctx.fillText('☰', 0, 0);
             }
@@ -733,7 +741,7 @@ class Tank {
         if (!this.alive || !bullet.active) return false;
 
         // Own bullet immunity for 500ms
-        if (bullet.owner === this.id && Date.now() - bullet.birth < 500) return false;
+        if (bullet.owner === this.id && Date.now() - bullet.birth < 1000) return false;
 
         const dist = Math.sqrt((this.x - bullet.x) ** 2 + (this.y - bullet.y) ** 2);
         return dist < TANK_SIZE / 2 + BULLET_RADIUS;
