@@ -465,10 +465,7 @@ class Bullet {
         if (bounced) {
             this.bounces++;
             this.angle = Math.atan2(this.vy, this.vx);
-            const max = this.type === 'homing' ? 50 : MAX_BOUNCES; // Homing missiles can bounce much more
-            if (this.bounces > max) {
-                this.active = false;
-            }
+            // Bounce limit removed as per user request, using lifespan only
         }
 
         this.x += this.vx;
