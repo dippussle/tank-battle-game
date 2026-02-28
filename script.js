@@ -245,13 +245,13 @@ class Maze {
         // Corner collisions
         const distSq = (x1, y1, x2, y2) => (x1 - x2) ** 2 + (y1 - y2) ** 2;
         const corners = [
-            { x: cellX, y: cellY }, { x: cellX + CELL_SIZE, y: cellY },
-            { x: cellX, y: cellY + CELL_SIZE }, { x: cellX + CELL_SIZE, y: cellY + CELL_SIZE }
+            { x: cellX, y: cellY, walls: [cell.walls.top, cell.walls.left] },
+            { x: cellX + CELL_SIZE, y: cellY, walls: [cell.walls.top, cell.walls.right] },
+            { x: cellX, y: cellY + CELL_SIZE, walls: [cell.walls.bottom, cell.walls.left] },
+            { x: cellX + CELL_SIZE, y: cellY + CELL_SIZE, walls: [cell.walls.bottom, cell.walls.right] }
         ];
         for (let corner of corners) {
-            if (distSq(x, y, corner.x, corner.y) < radius * radius) {
-                // Determine if this corner has a wall blocking it
-                // Simple version: if any walls meet here, block
+            if (corner.walls.some(w => w) && distSq(x, y, corner.x, corner.y) < radius * radius) {
                 return true;
             }
         }
