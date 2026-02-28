@@ -538,8 +538,8 @@ class Bullet {
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#00e5ff';
         } else {
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
         }
 
         if (this.type === 'homing') {
@@ -586,12 +586,14 @@ class Bullet {
             // Triangle/Missile shape
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
+            ctx.beginPath();
             ctx.moveTo(8, 0);
             ctx.lineTo(-6, 5);
             ctx.lineTo(-6, -5);
             ctx.closePath();
             ctx.fill();
         } else {
+            ctx.beginPath();
             ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
             ctx.fill();
         }
