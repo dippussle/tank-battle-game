@@ -13,7 +13,7 @@ const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
 const BULLET_SPEED = 3.5;
 const MAX_BOUNCES = 1000;
-const BULLET_LIFESPAN = 8000;
+const BULLET_LIFESPAN = 5000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
 
@@ -399,7 +399,8 @@ class Bullet {
                     this.angle += diff * 0.1;
                 }
 
-                this.vx = Math.cos(this.angle) * BULLET_SPEED * 1.2; // Slightly faster
+                // Constant forward motion
+                this.vx = Math.cos(this.angle) * BULLET_SPEED * 1.2;
                 this.vy = Math.sin(this.angle) * BULLET_SPEED * 1.2;
             }
         }
@@ -499,6 +500,7 @@ class Bullet {
         ctx.beginPath();
         if (this.type === 'wireless') {
             // Triangle/Missile shape
+            ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
             ctx.moveTo(8, 0);
             ctx.lineTo(-6, 5);
@@ -584,6 +586,9 @@ class Tank {
     update(maze) {
         if (!this.alive) return;
 
+        // Update bullets first so they don't freeze during takeover
+        this.bullets.forEach(b => b.update(maze, tanks));
+
         // Wireless Missile Takeover (Limit to 10s)
         if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
             const controlDuration = Date.now() - this.activeWirelessMissile.birth;
@@ -666,8 +671,6 @@ class Tank {
         if (this.activeWirelessMissile && !this.activeWirelessMissile.active) {
             this.activeWirelessMissile = null;
         }
-
-        this.bullets.forEach(b => b.update(maze, tanks));
     }
 
     draw() {
