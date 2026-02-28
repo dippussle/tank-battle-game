@@ -226,36 +226,38 @@ class Maze {
     }
 
     checkWallCollision(x, y, radius) {
-        const c = Math.floor(x / CELL_SIZE);
-        const r = Math.floor(y / CELL_SIZE);
-
-        if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return true;
-
-        const cell = this.cells[r][c];
-        const cellX = c * CELL_SIZE;
-        const cellY = r * CELL_SIZE;
-
-        // Wall collisions
         const margin = radius + WALL_THICKNESS / 2;
-        if (cell.walls.top && y < cellY + margin) return true;
-        if (cell.walls.bottom && y > cellY + CELL_SIZE - margin) return true;
-        if (cell.walls.left && x < cellX + margin) return true;
-        if (cell.walls.right && x > cellX + CELL_SIZE - margin) return true;
-
-        // Corner collisions
+        const rSq = radius * radius;
         const distSq = (x1, y1, x2, y2) => (x1 - x2) ** 2 + (y1 - y2) ** 2;
-        const corners = [
-            { x: cellX, y: cellY, walls: [cell.walls.top, cell.walls.left] },
-            { x: cellX + CELL_SIZE, y: cellY, walls: [cell.walls.top, cell.walls.right] },
-            { x: cellX, y: cellY + CELL_SIZE, walls: [cell.walls.bottom, cell.walls.left] },
-            { x: cellX + CELL_SIZE, y: cellY + CELL_SIZE, walls: [cell.walls.bottom, cell.walls.right] }
-        ];
-        for (let corner of corners) {
-            if (corner.walls.some(w => w) && distSq(x, y, corner.x, corner.y) < radius * radius) {
-                return true;
+
+        const startC = Math.floor((x - margin) / CELL_SIZE);
+        const endC = Math.floor((x + margin) / CELL_SIZE);
+        const startR = Math.floor((y - margin) / CELL_SIZE);
+        const endR = Math.floor((y + margin) / CELL_SIZE);
+
+        for (let r = startR; r <= endR; r++) {
+            for (let c = startC; c <= endC; c++) {
+                if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) {
+                    if (x < margin || x > this.cols * CELL_SIZE - margin || y < margin || y > this.rows * CELL_SIZE - margin) return true;
+                    continue;
+                }
+                const cell = this.cells[r][c];
+                const cx = c * CELL_SIZE;
+                const cy = r * CELL_SIZE;
+
+                // Segment checks
+                if (cell.walls.top && Math.abs(y - cy) < margin && x >= cx && x <= cx + CELL_SIZE) return true;
+                if (cell.walls.bottom && Math.abs(y - (cy + CELL_SIZE)) < margin && x >= cx && x <= cx + CELL_SIZE) return true;
+                if (cell.walls.left && Math.abs(x - cx) < margin && y >= cy && y <= cy + CELL_SIZE) return true;
+                if (cell.walls.right && Math.abs(x - (cx + CELL_SIZE)) < margin && y >= cy && y <= cy + CELL_SIZE) return true;
+
+                // Vertex checks (Only if a wall meets at this junction)
+                if (cell.walls.top || cell.walls.left) if (distSq(x, y, cx, cy) < rSq) return true;
+                if (cell.walls.top || cell.walls.right) if (distSq(x, y, cx + CELL_SIZE, cy) < rSq) return true;
+                if (cell.walls.bottom || cell.walls.left) if (distSq(x, y, cx, cy + CELL_SIZE) < rSq) return true;
+                if (cell.walls.bottom || cell.walls.right) if (distSq(x, y, cx + CELL_SIZE, cy + CELL_SIZE) < rSq) return true;
             }
         }
-
         return false;
     }
 
