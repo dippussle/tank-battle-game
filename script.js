@@ -643,7 +643,7 @@ class Tank {
         // Wireless Missile Takeover (Limit to 10s)
         if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
             const controlDuration = Date.now() - this.activeWirelessMissile.birth;
-            if (controlDuration < 10000) {
+            if (controlDuration < 20000) {
                 // Skip tank movement update, Bullet.update will handle input for the missile
                 return;
             } else {

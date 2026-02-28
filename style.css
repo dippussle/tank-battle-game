@@ -70,6 +70,7 @@ canvas {
     align-items: center;
     gap: 15px;
     padding: 15px;
+    margin: 15px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 20px;
     min-width: 140px;
@@ -224,4 +225,15 @@ button.menu-btn {
 button.menu-btn:hover {
     background: white;
     color: black;
+}
+
+#version-tag {
+    position: fixed;
+    bottom: 10px;
+    right: 15px;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    z-index: 100;
 }
