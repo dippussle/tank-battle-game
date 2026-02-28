@@ -258,6 +258,47 @@ class Maze {
 
         return false;
     }
+
+    findPath(startX, startY, endX, endY) {
+        const startC = Math.floor(startX / CELL_SIZE);
+        const startR = Math.floor(startY / CELL_SIZE);
+        const endC = Math.floor(endX / CELL_SIZE);
+        const endR = Math.floor(endY / CELL_SIZE);
+
+        if (startC === endC && startR === endR) return null;
+
+        const queue = [[{ r: startR, c: startC }]];
+        const visited = new Set([`${startR},${startC}`]);
+
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const current = path[path.length - 1];
+
+            if (current.r === endR && current.c === endC) {
+                // Return waypoints as pixel centers
+                return path.map(p => ({
+                    x: p.c * CELL_SIZE + CELL_SIZE / 2,
+                    y: p.r * CELL_SIZE + CELL_SIZE / 2
+                }));
+            }
+
+            const cell = this.cells[current.r][current.c];
+            const neighbors = [];
+            if (!cell.walls.top && current.r > 0) neighbors.push({ r: current.r - 1, c: current.c });
+            if (!cell.walls.bottom && current.r < ROWS - 1) neighbors.push({ r: current.r + 1, c: current.c });
+            if (!cell.walls.left && current.c > 0) neighbors.push({ r: current.r, c: current.c - 1 });
+            if (!cell.walls.right && current.c < COLS - 1) neighbors.push({ r: current.r, c: current.c + 1 });
+
+            for (let next of neighbors) {
+                const key = `${next.r},${next.c}`;
+                if (!visited.has(key)) {
+                    visited.add(key);
+                    queue.push([...path, next]);
+                }
+            }
+        }
+        return null; // No path
+    }
 }
 
 // Bullet Class
@@ -274,8 +315,10 @@ class Bullet {
         this.bounces = 0;
         this.birth = Date.now();
         this.active = true;
-        this.homingStart = Date.now() + 5000; // Starts homing after 5s
-        this.homingEnd = Date.now() + 20000;   // Ends after 20s total (5s straight + 15s homing)
+        this.homingStart = Date.now() + 2500; // Reduced to 2.5s
+        this.homingEnd = Date.now() + 20000;
+        this.path = [];
+        this.lastPathUpdate = 0;
     }
 
     update(maze, tanks) {
@@ -288,24 +331,36 @@ class Bullet {
             return;
         }
 
-        // Homing Logic
+        // Homing Logic (Pathfinding-based)
         if (this.type === 'homing' && now > this.homingStart && now < this.homingEnd) {
             const enemies = tanks.filter(t => t.alive && t.id !== this.owner);
             if (enemies.length > 0) {
-                // Find NEAREST enemy
+                // Find nearest enemy
                 const target = enemies.reduce((prev, curr) => {
                     const dPrev = (prev.x - this.x) ** 2 + (prev.y - this.y) ** 2;
                     const dCurr = (curr.x - this.x) ** 2 + (curr.y - this.y) ** 2;
                     return dCurr < dPrev ? curr : prev;
                 });
 
-                const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                // Update path every 300ms
+                if (now - this.lastPathUpdate > 300) {
+                    this.path = maze.findPath(this.x, this.y, target.x, target.y) || [];
+                    this.lastPathUpdate = now;
+                }
+
+                // Follow path waypoints
+                let targetPos = target; // Fallback to direct homing if no path
+                if (this.path && this.path.length > 1) {
+                    // Skip current cell waypoint, go to next
+                    targetPos = this.path[1];
+                }
+
+                const targetAngle = Math.atan2(targetPos.y - this.y, targetPos.x - this.x);
                 let diff = targetAngle - this.angle;
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
 
-                // Stronger steering (Lazer gibi hassas)
-                this.angle += diff * 0.08;
+                this.angle += diff * 0.1; // Smooth steering
                 this.vx = Math.cos(this.angle) * BULLET_SPEED;
                 this.vy = Math.sin(this.angle) * BULLET_SPEED;
             }
