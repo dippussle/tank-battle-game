@@ -302,18 +302,31 @@ class Bullet {
             }
         }
 
-        // Ghost Laser Logic (Slight curve)
+        // Ghost Laser Logic (Curving towards NEAR enemy)
         if (this.type === 'ghost') {
             const enemies = tanks.filter(t => t.alive && t.id !== this.owner);
             if (enemies.length > 0) {
-                const target = enemies[0];
-                const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
-                let diff = targetAngle - this.angle;
-                while (diff < -Math.PI) diff += Math.PI * 2;
-                while (diff > Math.PI) diff -= Math.PI * 2;
-                this.angle += diff * 0.01; // "AŞIRI AZ" kavis
-                this.vx = Math.cos(this.angle) * BULLET_SPEED;
-                this.vy = Math.sin(this.angle) * BULLET_SPEED;
+                // Find NEAREST enemy
+                const target = enemies.reduce((prev, curr) => {
+                    const dPrev = (prev.x - this.x) ** 2 + (prev.y - this.y) ** 2;
+                    const dCurr = (curr.x - this.x) ** 2 + (curr.y - this.y) ** 2;
+                    return dCurr < dPrev ? curr : prev;
+                });
+
+                const dist = Math.sqrt((target.x - this.x) ** 2 + (target.y - this.y) ** 2);
+                if (dist < 400) { // Only curve if within range
+                    const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                    let diff = targetAngle - this.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+
+                    // Only curve if target is roughly "in front" (within ~60 deg)
+                    if (Math.abs(diff) < Math.PI / 3) {
+                        this.angle += diff * 0.03;
+                        this.vx = Math.cos(this.angle) * BULLET_SPEED;
+                        this.vy = Math.sin(this.angle) * BULLET_SPEED;
+                    }
+                }
             }
         }
 
@@ -355,7 +368,8 @@ class Bullet {
         if (bounced) {
             this.bounces++;
             this.angle = Math.atan2(this.vy, this.vx);
-            if (this.bounces > MAX_BOUNCES) {
+            const max = this.type === 'homing' ? 50 : MAX_BOUNCES; // Homing missiles can bounce much more
+            if (this.bounces > max) {
                 this.active = false;
             }
         }
@@ -440,7 +454,7 @@ class Tank {
         this.y = startPos.y;
         this.angle = startPos.angle;
         this.controls = controls;
-        this.speed = 1.5;
+        this.speed = 2.0;
         this.rotSpeed = 0.05;
         this.alive = true;
         this.bullets = [];
