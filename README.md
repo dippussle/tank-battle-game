@@ -1,4 +1,4 @@
-# Tank Trouble Clone
+# Tank Battlegrounds
 
 A classic web-based tank battle game built with HTML5 Canvas and Vanilla JavaScript.
 
