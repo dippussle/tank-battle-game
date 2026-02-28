@@ -321,6 +321,7 @@ class Bullet {
         this.homingEnd = Date.now() + 20000;
         this.path = [];
         this.lastPathUpdate = 0;
+        this.thrust = 0.1; // For wireless control
     }
 
     update(maze, tanks) {
@@ -365,6 +366,36 @@ class Bullet {
                 this.angle += diff * 0.1; // Smooth steering
                 this.vx = Math.cos(this.angle) * BULLET_SPEED;
                 this.vy = Math.sin(this.angle) * BULLET_SPEED;
+            }
+        }
+
+        // Wireless Logic (Joystick controlled)
+        if (this.type === 'wireless') {
+            const ownerTank = tanks.find(t => t.id === this.owner);
+            if (ownerTank) {
+                let inputX = 0, inputY = 0;
+
+                // Get input from owner (Joystick or Keys)
+                if (ownerTank.joystickInput.x !== 0 || ownerTank.joystickInput.y !== 0) {
+                    inputX = ownerTank.joystickInput.x;
+                    inputY = ownerTank.joystickInput.y;
+                } else {
+                    if (keys[ownerTank.controls.left]) inputX = -1;
+                    if (keys[ownerTank.controls.right]) inputX = 1;
+                    if (keys[ownerTank.controls.up]) inputY = -1;
+                    if (keys[ownerTank.controls.down]) inputY = 1;
+                }
+
+                if (inputX !== 0 || inputY !== 0) {
+                    const targetAngle = Math.atan2(inputY, inputX);
+                    let diff = targetAngle - this.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    this.angle += diff * 0.1;
+                }
+
+                this.vx = Math.cos(this.angle) * BULLET_SPEED * 1.2; // Slightly faster
+                this.vy = Math.sin(this.angle) * BULLET_SPEED * 1.2;
             }
         }
 
@@ -447,22 +478,33 @@ class Bullet {
     draw() {
         if (!this.active) return;
         ctx.save();
-        ctx.fillStyle = this.type === 'ghost' ? '#ff00ff' : (this.type === 'homing' ? '#ff8800' : this.color);
+        ctx.fillStyle = this.type === 'ghost' ? '#ff00ff' : (this.type === 'homing' ? '#ff8800' : (this.type === 'wireless' ? '#00e5ff' : this.color));
 
         if (this.type === 'ghost') {
-            // Laser trail
             ctx.shadowBlur = 10;
             ctx.shadowColor = '#ff00ff';
         } else if (this.type === 'homing') {
             ctx.shadowBlur = 5;
             ctx.shadowColor = '#ff8800';
+        } else if (this.type === 'wireless') {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00e5ff';
         } else {
             ctx.shadowBlur = 5;
             ctx.shadowColor = this.color;
         }
 
         ctx.beginPath();
-        ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
+        if (this.type === 'wireless') {
+            // Triangle/Missile shape
+            ctx.rotate(this.angle);
+            ctx.moveTo(8, 0);
+            ctx.lineTo(-6, 5);
+            ctx.lineTo(-6, -5);
+            ctx.closePath();
+        } else {
+            ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
+        }
         ctx.fill();
         ctx.restore();
     }
@@ -496,6 +538,7 @@ class PowerUp {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 16px Orbitron';
+
         if (this.type === 'homing') {
             // Missile icon (simple triangle)
             ctx.beginPath();
@@ -503,6 +546,9 @@ class PowerUp {
             ctx.lineTo(6, 6);
             ctx.lineTo(-6, 6);
             ctx.fill();
+        } else if (this.type === 'wireless') {
+            // Wireless icon (W)
+            ctx.fillText('W', 0, 0);
         } else {
             // Ghost icon (☰)
             ctx.fillText('☰', 0, 0);
@@ -526,7 +572,8 @@ class Tank {
         this.bullets = [];
         this.lastShot = 0;
         this.shootDelay = 300;
-        this.powerUp = null; // 'homing' or 'ghost'
+        this.powerUp = null; // 'homing', 'ghost', or 'wireless'
+        this.activeWirelessMissile = null;
         this.turretAngle = startPos.angle;
         this.joystickInput = { x: 0, y: 0 };
         this.firePressed = false;
@@ -534,6 +581,12 @@ class Tank {
 
     update(maze) {
         if (!this.alive) return;
+
+        // Wireless Missile Takeover
+        if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
+            // Skip tank movement update, Bullet.update will handle input for the missile
+            return;
+        }
 
         // Rotation & Movement combined for Joystick OR separate for Keys
         let moveX = 0;
@@ -593,6 +646,11 @@ class Tank {
                 this.bullets.push(new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType));
                 this.lastShot = Date.now();
             }
+        }
+
+        // Return control if wireless missile is dead
+        if (this.activeWirelessMissile && !this.activeWirelessMissile.active) {
+            this.activeWirelessMissile = null;
         }
 
         this.bullets.forEach(b => b.update(maze, tanks));
@@ -761,7 +819,11 @@ function update() {
     // Handle Power-up spawning
     if (Date.now() > nextPowerUpTime) {
         const pos = maze.getRandomEmptyCell();
-        const type = Math.random() > 0.5 ? 'homing' : 'ghost';
+        const rand = Math.random();
+        let type = 'homing';
+        if (rand > 0.66) type = 'ghost';
+        else if (rand > 0.33) type = 'wireless';
+
         powerUps.push(new PowerUp(pos.x, pos.y, type));
         scheduleNextPowerUp();
     }
