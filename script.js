@@ -481,7 +481,7 @@ class Bullet {
                 else if (cell.walls.left && nextX < cx + m) wallNormal.x = 1;
                 else if (cell.walls.right && nextX > cx + CELL_SIZE - m) wallNormal.x = -1;
 
-                const portalObj = { x: this.x, y: this.y, nx: wallNormal.x, ny: wallNormal.y };
+                const portalObj = { x: this.x, y: this.y, nx: wallNormal.x, ny: wallNormal.y, birth: Date.now() };
                 if (this.type === 'portal_blue') portals.blue = portalObj;
                 else portals.orange = portalObj;
 
@@ -922,6 +922,7 @@ function initRound() {
     maze = new Maze(ROWS, COLS);
     tanks = [];
     powerUps = [];
+    portals = { blue: null, orange: null };
     roundEnded = false;
     winnerOverlay.classList.add('hidden');
     scheduleNextPowerUp();
@@ -986,6 +987,15 @@ function update() {
 
         powerUps.push(new PowerUp(pos.x, pos.y, type));
         scheduleNextPowerUp();
+    }
+
+    // Handle Portal Lifespan (20 seconds)
+    if (portals.blue && Date.now() - portals.blue.birth > 20000) {
+        portals.blue = null;
+        portals.orange = null;
+    } else if (portals.orange && Date.now() - portals.orange.birth > 20000) {
+        portals.blue = null;
+        portals.orange = null;
     }
 
     tanks.forEach(tank => tank.update(maze));
