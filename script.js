@@ -5,15 +5,17 @@ const winnerOverlay = document.getElementById('winner-overlay');
 const winnerMessage = document.getElementById('winner-message');
 
 // Game constants
-const CELL_SIZE = 80;
+const CELL_SIZE = 60; // Reduced for "smaller" map
 const ROWS = 9;
 const COLS = 13;
 const WALL_THICKNESS = 4;
-const TANK_SIZE = 24;
+const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
 const BULLET_SPEED = 4;
 const MAX_BOUNCES = 5;
-const BULLET_LIFESPAN = 10000; // 10 seconds
+const BULLET_LIFESPAN = 10000;
+const POWERUP_SPAWN_INTERVAL = [20000, 30000]; // 20-30 seconds
+const POWERUP_SIZE = 30;
 
 canvas.width = COLS * CELL_SIZE;
 canvas.height = ROWS * CELL_SIZE;
@@ -31,6 +33,63 @@ const COLORS = {
 const keys = {};
 window.addEventListener('keydown', (e) => keys[e.code] = true);
 window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+// Joystick Class
+class Joystick {
+    constructor(containerId, onChange) {
+        this.container = document.getElementById(containerId);
+        if (!this.container) return;
+
+        this.knob = document.createElement('div');
+        this.knob.className = 'joystick-knob';
+        this.container.appendChild(this.knob);
+
+        this.active = false;
+        this.origin = { x: 0, y: 0 };
+        this.input = { x: 0, y: 0 };
+        this.onChange = onChange;
+
+        this.container.addEventListener('touchstart', (e) => this.start(e.touches[0]), { passive: false });
+        this.container.addEventListener('mousedown', (e) => this.start(e));
+
+        window.addEventListener('touchmove', (e) => this.move(e.touches[0]), { passive: false });
+        window.addEventListener('mousemove', (e) => this.move(e));
+
+        window.addEventListener('touchend', () => this.end());
+        window.addEventListener('mouseup', () => this.end());
+    }
+
+    start(e) {
+        this.active = true;
+        const rect = this.container.getBoundingClientRect();
+        this.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        this.move(e);
+    }
+
+    move(e) {
+        if (!this.active) return;
+        const dx = e.clientX - this.origin.x;
+        const dy = e.clientY - this.origin.y;
+        const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+        const angle = Math.atan2(dy, dx);
+
+        const x = Math.cos(angle) * dist;
+        const y = Math.sin(angle) * dist;
+
+        this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+
+        this.input = { x: x / 60, y: y / 60 };
+        if (this.onChange) this.onChange(this.input);
+    }
+
+    end() {
+        if (!this.active) return;
+        this.active = false;
+        this.knob.style.transform = `translate(-50%, -50%)`;
+        this.input = { x: 0, y: 0 };
+        if (this.onChange) this.onChange(this.input);
+    }
+}
 
 // Maze Class
 class Maze {
@@ -51,10 +110,10 @@ class Maze {
 
         const getUnvisitedNeighbors = (r, c) => {
             const neighbors = [];
-            if (r > 0 && !this.cells[r-1][c].visited) neighbors.push({ r: r-1, c: c, dir: 'top' });
-            if (r < this.rows - 1 && !this.cells[r+1][c].visited) neighbors.push({ r: r+1, c: c, dir: 'bottom' });
-            if (c > 0 && !this.cells[r][c-1].visited) neighbors.push({ r: r, c: c-1, dir: 'left' });
-            if (c < this.cols - 1 && !this.cells[r][c+1].visited) neighbors.push({ r: r, c: c+1, dir: 'right' });
+            if (r > 0 && !this.cells[r - 1][c].visited) neighbors.push({ r: r - 1, c: c, dir: 'top' });
+            if (r < this.rows - 1 && !this.cells[r + 1][c].visited) neighbors.push({ r: r + 1, c: c, dir: 'bottom' });
+            if (c > 0 && !this.cells[r][c - 1].visited) neighbors.push({ r: r, c: c - 1, dir: 'left' });
+            if (c < this.cols - 1 && !this.cells[r][c + 1].visited) neighbors.push({ r: r, c: c + 1, dir: 'right' });
             return neighbors;
         };
 
@@ -62,7 +121,7 @@ class Maze {
             const neighbors = getUnvisitedNeighbors(current.r, current.c);
             if (neighbors.length > 0) {
                 const next = neighbors[Math.floor(Math.random() * neighbors.length)];
-                
+
                 // Remove walls
                 if (next.dir === 'top') {
                     this.cells[current.r][current.c].walls.top = false;
@@ -94,12 +153,12 @@ class Maze {
             const c = Math.floor(Math.random() * (this.cols - 1)) + 1;
             const walls = Object.keys(this.cells[r][c].walls);
             const wall = walls[Math.floor(Math.random() * walls.length)];
-            
+
             this.cells[r][c].walls[wall] = false;
-            if (wall === 'top') this.cells[r-1][c].walls.bottom = false;
-            if (wall === 'bottom') this.cells[r+1][c].walls.top = false;
-            if (wall === 'left') this.cells[r][c-1].walls.right = false;
-            if (wall === 'right') this.cells[r][c+1].walls.left = false;
+            if (wall === 'top') this.cells[r - 1][c].walls.bottom = false;
+            if (wall === 'bottom') this.cells[r + 1][c].walls.top = false;
+            if (wall === 'left') this.cells[r][c - 1].walls.right = false;
+            if (wall === 'right') this.cells[r][c + 1].walls.left = false;
         }
     }
 
@@ -142,10 +201,20 @@ class Maze {
         }
     }
 
+    getRandomEmptyCell() {
+        // Find a cell that doesn't have a tank or powerup (simple version: just random cell)
+        const r = Math.floor(Math.random() * ROWS);
+        const c = Math.floor(Math.random() * COLS);
+        return {
+            x: c * CELL_SIZE + CELL_SIZE / 2,
+            y: r * CELL_SIZE + CELL_SIZE / 2
+        };
+    }
+
     checkWallCollision(x, y, radius) {
         const c = Math.floor(x / CELL_SIZE);
         const r = Math.floor(y / CELL_SIZE);
-        
+
         if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return true;
 
         const cell = this.cells[r][c];
@@ -160,16 +229,16 @@ class Maze {
         if (cell.walls.right && x > cellX + CELL_SIZE - margin) return true;
 
         // Corner collisions
-        const distSq = (x1, y1, x2, y2) => (x1-x2)**2 + (y1-y2)**2;
+        const distSq = (x1, y1, x2, y2) => (x1 - x2) ** 2 + (y1 - y2) ** 2;
         const corners = [
-            {x: cellX, y: cellY}, {x: cellX+CELL_SIZE, y: cellY},
-            {x: cellX, y: cellY+CELL_SIZE}, {x: cellX+CELL_SIZE, y: cellY+CELL_SIZE}
+            { x: cellX, y: cellY }, { x: cellX + CELL_SIZE, y: cellY },
+            { x: cellX, y: cellY + CELL_SIZE }, { x: cellX + CELL_SIZE, y: cellY + CELL_SIZE }
         ];
         for (let corner of corners) {
             if (distSq(x, y, corner.x, corner.y) < radius * radius) {
                 // Determine if this corner has a wall blocking it
                 // Simple version: if any walls meet here, block
-                return true; 
+                return true;
             }
         }
 
@@ -179,34 +248,78 @@ class Maze {
 
 // Bullet Class
 class Bullet {
-    constructor(x, y, angle, color, owner) {
+    constructor(x, y, angle, color, owner, type = 'normal') {
         this.x = x;
         this.y = y;
         this.angle = angle;
         this.color = color;
         this.owner = owner;
+        this.type = type; // 'normal', 'homing', 'ghost'
         this.vx = Math.cos(angle) * BULLET_SPEED;
         this.vy = Math.sin(angle) * BULLET_SPEED;
         this.bounces = 0;
         this.birth = Date.now();
         this.active = true;
+        this.homingStart = Date.now() + 5000; // Starts homing after 5s
+        this.homingEnd = Date.now() + 20000;   // Ends after 20s total (5s straight + 15s homing)
     }
 
-    update(maze) {
+    update(maze, tanks) {
         if (!this.active) return;
-        
-        if (Date.now() - this.birth > BULLET_LIFESPAN) {
+
+        const now = Date.now();
+        if (now - this.birth > (this.type === 'homing' ? 20000 : BULLET_LIFESPAN)) {
             this.active = false;
             return;
+        }
+
+        // Homing Logic
+        if (this.type === 'homing' && now > this.homingStart && now < this.homingEnd) {
+            const target = tanks.find(t => t.alive && t.id !== this.owner); // Target an enemy tank
+            if (target) {
+                const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                let diff = targetAngle - this.angle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                this.angle += diff * 0.05;
+                this.vx = Math.cos(this.angle) * BULLET_SPEED;
+                this.vy = Math.sin(this.angle) * BULLET_SPEED;
+            }
+        }
+
+        // Ghost Laser Logic (Slight curve)
+        if (this.type === 'ghost') {
+            const enemies = tanks.filter(t => t.alive && t.id !== this.owner);
+            if (enemies.length > 0) {
+                const target = enemies[0];
+                const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                let diff = targetAngle - this.angle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                this.angle += diff * 0.01; // "AŞIRI AZ" kavis
+                this.vx = Math.cos(this.angle) * BULLET_SPEED;
+                this.vy = Math.sin(this.angle) * BULLET_SPEED;
+            }
         }
 
         const nextX = this.x + this.vx;
         const nextY = this.y + this.vy;
 
-        // Ricochet check
+        // Ghost Laser ignores walls
+        if (this.type === 'ghost') {
+            this.x = nextX;
+            this.y = nextY;
+            // Screen boundary check
+            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                this.active = false;
+            }
+            return;
+        }
+
+        // Ricochet check (Normal & Homing)
         const c = Math.floor(nextX / CELL_SIZE);
         const r = Math.floor(nextY / CELL_SIZE);
-        
+
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) {
             this.active = false;
             return;
@@ -215,17 +328,18 @@ class Bullet {
         const cell = maze.cells[r][c];
         const cx = c * CELL_SIZE;
         const cy = r * CELL_SIZE;
-        const m = BULLET_RADIUS + WALL_THICKNESS/2;
+        const m = BULLET_RADIUS + WALL_THICKNESS / 2;
 
         let bounced = false;
         if (cell.walls.top && nextY < cy + m && this.vy < 0) { this.vy *= -1; bounced = true; }
         else if (cell.walls.bottom && nextY > cy + CELL_SIZE - m && this.vy > 0) { this.vy *= -1; bounced = true; }
-        
+
         if (cell.walls.left && nextX < cx + m && this.vx < 0) { this.vx *= -1; bounced = true; }
         else if (cell.walls.right && nextX > cx + CELL_SIZE - m && this.vx > 0) { this.vx *= -1; bounced = true; }
 
         if (bounced) {
             this.bounces++;
+            this.angle = Math.atan2(this.vy, this.vx);
             if (this.bounces > MAX_BOUNCES) {
                 this.active = false;
             }
@@ -237,16 +351,68 @@ class Bullet {
 
     draw() {
         if (!this.active) return;
-        ctx.fillStyle = this.color;
+        ctx.save();
+        ctx.fillStyle = this.type === 'ghost' ? '#ff00ff' : (this.type === 'homing' ? '#ff8800' : this.color);
+
+        if (this.type === 'ghost') {
+            // Laser trail
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff00ff';
+        } else if (this.type === 'homing') {
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#ff8800';
+        } else {
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = this.color;
+        }
+
         ctx.beginPath();
         ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Glow effect
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
+        ctx.restore();
+    }
+}
+
+// PowerUp Class
+class PowerUp {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'homing', 'ghost'
+        this.active = true;
+    }
+
+    draw() {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Box
+        ctx.fillStyle = '#ffeb3b';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.rect(-POWERUP_SIZE / 2, -POWERUP_SIZE / 2, POWERUP_SIZE, POWERUP_SIZE);
+        ctx.fill();
         ctx.stroke();
-        ctx.shadowBlur = 0;
+
+        // Icon
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 16px Orbitron';
+        if (this.type === 'homing') {
+            // Missile icon (simple triangle)
+            ctx.beginPath();
+            ctx.moveTo(0, -8);
+            ctx.lineTo(6, 6);
+            ctx.lineTo(-6, 6);
+            ctx.fill();
+        } else {
+            // Ghost icon (☰)
+            ctx.fillText('☰', 0, 0);
+        }
+        ctx.restore();
     }
 }
 
@@ -265,47 +431,76 @@ class Tank {
         this.bullets = [];
         this.lastShot = 0;
         this.shootDelay = 300;
+        this.powerUp = null; // 'homing' or 'ghost'
+        this.turretAngle = startPos.angle;
+        this.joystickInput = { x: 0, y: 0 };
+        this.firePressed = false;
     }
 
     update(maze) {
         if (!this.alive) return;
 
-        // Rotation
-        if (keys[this.controls.left]) this.angle -= this.rotSpeed;
-        if (keys[this.controls.right]) this.angle += this.rotSpeed;
-
-        // Movement
+        // Rotation & Movement combined for Joystick OR separate for Keys
         let moveX = 0;
         let moveY = 0;
-        if (keys[this.controls.up]) {
-            moveX = Math.cos(this.angle) * this.speed;
-            moveY = Math.sin(this.angle) * this.speed;
-        }
-        if (keys[this.controls.down]) {
-            moveX = -Math.cos(this.angle) * (this.speed * 0.7);
-            moveY = -Math.sin(this.angle) * (this.speed * 0.7);
+
+        if (this.joystickInput.x !== 0 || this.joystickInput.y !== 0) {
+            // Joystick logic
+            const targetAngle = Math.atan2(this.joystickInput.y, this.joystickInput.x);
+            // Smoothly rotate towards joystick angle
+            let diff = targetAngle - this.angle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            this.angle += diff * 0.1;
+            this.turretAngle = this.angle;
+
+            const power = Math.sqrt(this.joystickInput.x ** 2 + this.joystickInput.y ** 2);
+            moveX = Math.cos(this.angle) * this.speed * power;
+            moveY = Math.sin(this.angle) * this.speed * power;
+        } else {
+            // Keyboard logic
+            if (keys[this.controls.left]) this.angle -= this.rotSpeed;
+            if (keys[this.controls.right]) this.angle += this.rotSpeed;
+            this.turretAngle = this.angle;
+
+            if (keys[this.controls.up]) {
+                moveX = Math.cos(this.angle) * this.speed;
+                moveY = Math.sin(this.angle) * this.speed;
+            }
+            if (keys[this.controls.down]) {
+                moveX = -Math.cos(this.angle) * (this.speed * 0.7);
+                moveY = -Math.sin(this.angle) * (this.speed * 0.7);
+            }
         }
 
-        if (!maze.checkWallCollision(this.x + moveX, this.y + moveY, TANK_SIZE/2)) {
+        if (!maze.checkWallCollision(this.x + moveX, this.y + moveY, TANK_SIZE / 2)) {
             this.x += moveX;
             this.y += moveY;
-        } else if (!maze.checkWallCollision(this.x + moveX, this.y, TANK_SIZE/2)) {
+        } else if (!maze.checkWallCollision(this.x + moveX, this.y, TANK_SIZE / 2)) {
             this.x += moveX;
-        } else if (!maze.checkWallCollision(this.x, this.y + moveY, TANK_SIZE/2)) {
+        } else if (!maze.checkWallCollision(this.x, this.y + moveY, TANK_SIZE / 2)) {
             this.y += moveY;
         }
 
         // Shooting
-        if (keys[this.controls.fire] && Date.now() - this.lastShot > this.shootDelay) {
+        const isShooting = keys[this.controls.fire] || this.firePressed;
+        if (isShooting && Date.now() - this.lastShot > this.shootDelay) {
             if (this.bullets.filter(b => b.active).length < 5) {
-                const bulletX = this.x + Math.cos(this.angle) * (TANK_SIZE * 0.8);
-                const bulletY = this.y + Math.sin(this.angle) * (TANK_SIZE * 0.8);
-                this.bullets.push(new Bullet(bulletX, bulletY, this.angle, 'black', this.id));
+                const bulletX = this.x + Math.cos(this.turretAngle) * (TANK_SIZE * 0.8);
+                const bulletY = this.y + Math.sin(this.turretAngle) * (TANK_SIZE * 0.8);
+
+                let bulletType = 'normal';
+                if (this.powerUp) {
+                    bulletType = this.powerUp;
+                    this.powerUp = null; // Use powerup once
+                }
+
+                this.bullets.push(new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType));
                 this.lastShot = Date.now();
             }
         }
 
-        this.bullets.forEach(b => b.update(maze));
+        this.bullets.forEach(b => b.update(maze, tanks));
     }
 
     draw() {
@@ -313,32 +508,70 @@ class Tank {
 
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
 
-        // Body
+        // Body (Detailed Hull)
+        ctx.save();
+        ctx.rotate(this.angle);
         ctx.fillStyle = this.color;
-        ctx.strokeStyle = 'black';
+        ctx.strokeStyle = '#333';
         ctx.lineWidth = 2;
+
+        // Main hull
         ctx.beginPath();
-        ctx.rect(-TANK_SIZE/2, -TANK_SIZE/2, TANK_SIZE, TANK_SIZE);
+        ctx.roundRect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE, 4);
         ctx.fill();
         ctx.stroke();
 
+        // Tracks
+        ctx.fillStyle = '#444';
+        ctx.fillRect(-TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
+        ctx.fillRect(TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
+        ctx.restore();
+
+        // Turret (Detailed)
+        ctx.save();
+        ctx.rotate(this.turretAngle);
+
         // Barrel
         ctx.fillStyle = COLORS.WALL;
+        ctx.fillRect(0, -2, TANK_SIZE * 0.9, 4);
+
+        // Turret cap
+        ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.rect(0, -3, TANK_SIZE * 0.8, 6);
+        ctx.arc(0, 0, TANK_SIZE * 0.35, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
         ctx.restore();
+        ctx.restore();
+
+        // Power-up Indicator above tank
+        if (this.powerUp) {
+            ctx.save();
+            ctx.translate(this.x, this.y - TANK_SIZE - 10);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 14px Orbitron';
+            ctx.textAlign = 'center';
+            if (this.powerUp === 'homing') {
+                ctx.beginPath();
+                ctx.moveTo(0, -6);
+                ctx.lineTo(4, 4);
+                ctx.lineTo(-4, 4);
+                ctx.fill();
+            } else {
+                ctx.fillText('☰', 0, 0);
+            }
+            ctx.restore();
+        }
 
         this.bullets.forEach(b => b.draw());
     }
 
     checkBulletHit(bullet) {
         if (!this.alive || !bullet.active) return false;
-        const dist = Math.sqrt((this.x - bullet.x)**2 + (this.y - bullet.y)**2);
-        return dist < TANK_SIZE/2 + BULLET_RADIUS;
+        const dist = Math.sqrt((this.x - bullet.x) ** 2 + (this.y - bullet.y) ** 2);
+        return dist < TANK_SIZE / 2 + BULLET_RADIUS;
     }
 }
 
@@ -346,6 +579,8 @@ class Tank {
 let gameState = 'MENU';
 let maze;
 let tanks = [];
+let powerUps = [];
+let nextPowerUpTime = 0;
 let playerCount = 2;
 let roundEnded = false;
 
@@ -366,31 +601,84 @@ function startGame(count) {
 function initRound() {
     maze = new Maze(ROWS, COLS);
     tanks = [];
+    powerUps = [];
     roundEnded = false;
     winnerOverlay.classList.add('hidden');
+    scheduleNextPowerUp();
 
     const spawnPoints = [
-        { x: CELL_SIZE/2, y: CELL_SIZE/2, angle: 0 },
-        { x: canvas.width - CELL_SIZE/2, y: canvas.height - CELL_SIZE/2, angle: Math.PI },
-        { x: canvas.width - CELL_SIZE/2, y: CELL_SIZE/2, angle: Math.PI/2 },
-        { x: CELL_SIZE/2, y: canvas.height - CELL_SIZE/2, angle: -Math.PI/2 }
+        { x: CELL_SIZE / 2, y: CELL_SIZE / 2, angle: 0 },
+        { x: canvas.width - CELL_SIZE / 2, y: canvas.height - CELL_SIZE / 2, angle: Math.PI },
+        { x: canvas.width - CELL_SIZE / 2, y: CELL_SIZE / 2, angle: Math.PI / 2 },
+        { x: CELL_SIZE / 2, y: canvas.height - CELL_SIZE / 2, angle: -Math.PI / 2 }
     ];
 
     for (let i = 0; i < playerCount; i++) {
-        tanks.push(new Tank(PLAYER_CONFIGS[i].id, PLAYER_CONFIGS[i].color, spawnPoints[i], PLAYER_CONFIGS[i].controls));
+        const tank = new Tank(PLAYER_CONFIGS[i].id, PLAYER_CONFIGS[i].color, spawnPoints[i], PLAYER_CONFIGS[i].controls);
+        tanks.push(tank);
+
+        // Link Joysticks if they exist
+        if (i === 0) {
+            new Joystick('p1-joystick', (input) => tank.joystickInput = input);
+            const fireBtn = document.getElementById('p1-fire');
+            if (fireBtn) {
+                fireBtn.addEventListener('mousedown', () => tank.firePressed = true);
+                fireBtn.addEventListener('mouseup', () => tank.firePressed = false);
+                fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
+                fireBtn.addEventListener('touchend', () => tank.firePressed = false);
+            }
+        }
+        if (i === 1) {
+            new Joystick('p2-joystick', (input) => tank.joystickInput = input);
+            const fireBtn = document.getElementById('p2-fire');
+            if (fireBtn) {
+                fireBtn.addEventListener('mousedown', () => tank.firePressed = true);
+                fireBtn.addEventListener('mouseup', () => tank.firePressed = false);
+                fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
+                fireBtn.addEventListener('touchend', () => tank.firePressed = false);
+            }
+        }
     }
+}
+
+function scheduleNextPowerUp() {
+    const delay = POWERUP_SPAWN_INTERVAL[0] + Math.random() * (POWERUP_SPAWN_INTERVAL[1] - POWERUP_SPAWN_INTERVAL[0]);
+    nextPowerUpTime = Date.now() + delay;
 }
 
 function update() {
     if (gameState !== 'PLAYING') return;
 
+    // Handle Power-up spawning
+    if (Date.now() > nextPowerUpTime) {
+        const pos = maze.getRandomEmptyCell();
+        const type = Math.random() > 0.5 ? 'homing' : 'ghost';
+        powerUps.push(new PowerUp(pos.x, pos.y, type));
+        scheduleNextPowerUp();
+    }
+
     tanks.forEach(tank => tank.update(maze));
+
+    // Collision check: Tanks vs PowerUps
+    tanks.forEach(tank => {
+        if (!tank.alive) return;
+        powerUps.forEach(pu => {
+            if (pu.active) {
+                const dist = Math.sqrt((tank.x - pu.x) ** 2 + (tank.y - pu.y) ** 2);
+                if (dist < TANK_SIZE / 2 + POWERUP_SIZE / 2) {
+                    tank.powerUp = pu.type;
+                    pu.active = false;
+                }
+            }
+        });
+    });
 
     // Collision check: Bullets vs Tanks
     tanks.forEach(tank => {
         tanks.forEach(otherTank => {
             otherTank.bullets.forEach(bullet => {
                 if (tank.checkBulletHit(bullet)) {
+                    // Friendly fire check or own bullet check is skipped to match original "trouble" logic
                     tank.alive = false;
                     bullet.active = false;
                 }
@@ -411,7 +699,7 @@ function showWinner(winnerId) {
     winnerMessage.textContent = winnerId === "NOBODY" ? "DRAW!" : `${winnerId} WINS!`;
     winnerMessage.style.color = winnerId === "NOBODY" ? "white" : COLORS[winnerId];
     winnerOverlay.classList.remove('hidden');
-    
+
     setTimeout(() => {
         if (gameState === 'PLAYING') initRound();
     }, 3000);
@@ -422,6 +710,7 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (maze) maze.draw();
+    powerUps.forEach(pu => pu.draw());
     tanks.forEach(tank => tank.draw());
 
     requestAnimationFrame(() => {

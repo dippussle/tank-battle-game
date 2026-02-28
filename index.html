@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,37 +8,51 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;700&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="menu-overlay" class="overlay">
-            <div class="menu-content">
-                <h1>TANK TROUBLE</h1>
-                <p>Select number of players:</p>
-                <div class="button-group">
-                    <button onclick="startGame(2)">2 Players</button>
-                    <button onclick="startGame(3)">3 Players</button>
-                    <button onclick="startGame(4)">4 Players</button>
+    <div id="game-wrapper">
+        <div id="p1-controls" class="touch-controls p1-side">
+            <div class="joystick-container" id="p1-joystick"></div>
+            <button class="fire-btn" id="p1-fire">Q</button>
+        </div>
+
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+
+            <div id="menu-overlay" class="overlay">
+                <div class="menu-content">
+                    <h1>TANK TROUBLE</h1>
+                    <p>Select number of players:</p>
+                    <div class="button-group">
+                        <button onclick="startGame(2)">2 Players</button>
+                        <button onclick="startGame(3)">3 Players</button>
+                        <button onclick="startGame(4)">4 Players</button>
+                    </div>
                 </div>
-                <div class="controls-hint">
-                    <div class="player-hint p1">P1: WASD + Q</div>
-                    <div class="player-hint p2">P2: ARROWS + M</div>
-                    <div class="player-hint p3">P3: IJKL + U</div>
-                    <div class="player-hint p4">P4: NUM 8456 + 0</div>
+            </div>
+
+            <div id="winner-overlay" class="overlay hidden">
+                <div class="winner-content">
+                    <h2 id="winner-message">BLUE WINS!</h2>
+                    <p>Starting next round in 3 seconds...</p>
                 </div>
             </div>
         </div>
 
-        <div id="winner-overlay" class="overlay hidden">
-            <div class="winner-content">
-                <h2 id="winner-message">BLUE WINS!</h2>
-                <p>Starting next round in 3 seconds...</p>
-            </div>
+        <div id="p2-controls" class="touch-controls p2-side">
+            <button class="fire-btn" id="p2-fire">M</button>
+            <div class="joystick-container" id="p2-joystick"></div>
         </div>
     </div>
+
+    <!-- For P3 and P4 on top/bottom if needed? The user mentioned Smart Board/Touch. 
+         Usually 2 players are on sides. For 4 players we can add more overlay or corners. 
+         Let's start with a robust side system. -->
     <script src="script.js"></script>
 </body>
+
 </html>
