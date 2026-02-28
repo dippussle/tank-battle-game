@@ -14,7 +14,7 @@ const BULLET_RADIUS = 3;
 const BULLET_SPEED = 3.5;
 const MAX_BOUNCES = 1000;
 const BULLET_LIFESPAN = 20000;
-const POWERUP_SPAWN_INTERVAL = [20000, 30000]; // 20-30 seconds
+const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
 
 canvas.width = COLS * CELL_SIZE;
@@ -579,10 +579,16 @@ class Tank {
     update(maze) {
         if (!this.alive) return;
 
-        // Wireless Missile Takeover
+        // Wireless Missile Takeover (Limit to 10s)
         if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
-            // Skip tank movement update, Bullet.update will handle input for the missile
-            return;
+            const controlDuration = Date.now() - this.activeWirelessMissile.birth;
+            if (controlDuration < 10000) {
+                // Skip tank movement update, Bullet.update will handle input for the missile
+                return;
+            } else {
+                // Control timeout - release missile
+                this.activeWirelessMissile = null;
+            }
         }
 
         // Rotation & Movement combined for Joystick OR separate for Keys
