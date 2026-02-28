@@ -36,62 +36,65 @@ window.addEventListener('keyup', (e) => keys[e.code] = false);
 
 // Joystick Class
 class Joystick {
-    if(this.container._joystick) return this.container._joystick;
-this.container._joystick = this;
+    constructor(containerId, onChange) {
+        this.container = document.getElementById(containerId);
+        if (!this.container) return;
+        if (this.container._joystick) return this.container._joystick;
+        this.container._joystick = this;
 
-this.knob = document.createElement('div');
-this.knob.className = 'joystick-knob';
-this.container.appendChild(this.knob);
+        this.knob = document.createElement('div');
+        this.knob.className = 'joystick-knob';
+        this.container.appendChild(this.knob);
 
-this.active = false;
-this.origin = { x: 0, y: 0 };
-this.input = { x: 0, y: 0 };
-this.onChange = onChange;
+        this.active = false;
+        this.origin = { x: 0, y: 0 };
+        this.input = { x: 0, y: 0 };
+        this.onChange = onChange;
 
-const handleStart = (e) => this.start(e.touches ? e.touches[0] : e);
-const handleMove = (e) => this.move(e.touches ? e.touches[0] : e);
-const handleEnd = () => this.end();
+        const handleStart = (e) => this.start(e.touches ? e.touches[0] : e);
+        const handleMove = (e) => this.move(e.touches ? e.touches[0] : e);
+        const handleEnd = () => this.end();
 
-this.container.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
-this.container.addEventListener('mousedown', handleStart);
+        this.container.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
+        this.container.addEventListener('mousedown', handleStart);
 
-window.addEventListener('touchmove', handleMove, { passive: false });
-window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mousemove', handleMove);
 
-window.addEventListener('touchend', handleEnd);
-window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchend', handleEnd);
+        window.addEventListener('mouseup', handleEnd);
     }
 
-start(e) {
-    this.active = true;
-    const rect = this.container.getBoundingClientRect();
-    this.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    this.move(e);
-}
+    start(e) {
+        this.active = true;
+        const rect = this.container.getBoundingClientRect();
+        this.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        this.move(e);
+    }
 
-move(e) {
-    if (!this.active) return;
-    const dx = e.clientX - this.origin.x;
-    const dy = e.clientY - this.origin.y;
-    const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
-    const angle = Math.atan2(dy, dx);
+    move(e) {
+        if (!this.active) return;
+        const dx = e.clientX - this.origin.x;
+        const dy = e.clientY - this.origin.y;
+        const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+        const angle = Math.atan2(dy, dx);
 
-    const x = Math.cos(angle) * dist;
-    const y = Math.sin(angle) * dist;
+        const x = Math.cos(angle) * dist;
+        const y = Math.sin(angle) * dist;
 
-    this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
-    this.input = { x: x / 60, y: y / 60 };
-    if (this.onChange) this.onChange(this.input);
-}
+        this.input = { x: x / 60, y: y / 60 };
+        if (this.onChange) this.onChange(this.input);
+    }
 
-end() {
-    if (!this.active) return;
-    this.active = false;
-    this.knob.style.transform = `translate(-50%, -50%)`;
-    this.input = { x: 0, y: 0 };
-    if (this.onChange) this.onChange(this.input);
-}
+    end() {
+        if (!this.active) return;
+        this.active = false;
+        this.knob.style.transform = `translate(-50%, -50%)`;
+        this.input = { x: 0, y: 0 };
+        if (this.onChange) this.onChange(this.input);
+    }
 }
 
 // Maze Class
