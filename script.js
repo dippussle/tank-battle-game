@@ -11,9 +11,9 @@ const COLS = 11;
 const WALL_THICKNESS = 4;
 const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
-const BULLET_SPEED = 4;
-const MAX_BOUNCES = 5;
-const BULLET_LIFESPAN = 10000;
+const BULLET_SPEED = 3.5;
+const MAX_BOUNCES = 1000;
+const BULLET_LIFESPAN = 20000;
 const POWERUP_SPAWN_INTERVAL = [20000, 30000]; // 20-30 seconds
 const POWERUP_SIZE = 30;
 
