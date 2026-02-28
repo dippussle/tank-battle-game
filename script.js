@@ -6,8 +6,8 @@ const winnerMessage = document.getElementById('winner-message');
 
 // Game constants
 const CELL_SIZE = 60; // Reduced for "smaller" map
-const ROWS = 11;
-const COLS = 11;
+const ROWS = 9;
+const COLS = 9;
 const WALL_THICKNESS = 4;
 const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
