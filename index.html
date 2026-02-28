@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Trouble Clone</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="menu-overlay" class="overlay">
+            <div class="menu-content">
+                <h1>TANK TROUBLE</h1>
+                <p>Select number of players:</p>
+                <div class="button-group">
+                    <button onclick="startGame(2)">2 Players</button>
+                    <button onclick="startGame(3)">3 Players</button>
+                    <button onclick="startGame(4)">4 Players</button>
+                </div>
+                <div class="controls-hint">
+                    <div class="player-hint p1">P1: WASD + Q</div>
+                    <div class="player-hint p2">P2: ARROWS + M</div>
+                    <div class="player-hint p3">P3: IJKL + U</div>
+                    <div class="player-hint p4">P4: NUM 8456 + 0</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="winner-overlay" class="overlay hidden">
+            <div class="winner-content">
+                <h2 id="winner-message">BLUE WINS!</h2>
+                <p>Starting next round in 3 seconds...</p>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
