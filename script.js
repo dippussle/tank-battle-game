@@ -351,11 +351,16 @@ class Bullet {
                     this.lastPathUpdate = now;
                 }
 
-                // Follow path waypoints
-                let targetPos = target; // Fallback to direct homing if no path
+                // Follow path waypoints with lookahead
+                let targetPos = target;
                 if (this.path && this.path.length > 1) {
-                    // Skip current cell waypoint, go to next
-                    targetPos = this.path[1];
+                    // Lookahead: if close to path[1], target path[2]
+                    const dNextSq = (this.path[1].x - this.x) ** 2 + (this.path[1].y - this.y) ** 2;
+                    if (dNextSq < (CELL_SIZE * 0.5) ** 2 && this.path.length > 2) {
+                        targetPos = this.path[2];
+                    } else {
+                        targetPos = this.path[1];
+                    }
                 }
 
                 const targetAngle = Math.atan2(targetPos.y - this.y, targetPos.x - this.x);
@@ -363,7 +368,7 @@ class Bullet {
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
 
-                this.angle += diff * 0.1; // Smooth steering
+                this.angle += diff * 0.15; // Sharper steering
                 this.vx = Math.cos(this.angle) * BULLET_SPEED;
                 this.vy = Math.sin(this.angle) * BULLET_SPEED;
             }
@@ -822,10 +827,8 @@ function update() {
     // Handle Power-up spawning
     if (Date.now() > nextPowerUpTime) {
         const pos = maze.getRandomEmptyCell();
-        const rand = Math.random();
-        let type = 'homing';
-        if (rand > 0.66) type = 'ghost';
-        else if (rand > 0.33) type = 'wireless';
+        const types = ['homing', 'ghost', 'wireless'];
+        const type = types[Math.floor(Math.random() * types.length)]; // Equal 1/3 odds
 
         powerUps.push(new PowerUp(pos.x, pos.y, type));
         scheduleNextPowerUp();
