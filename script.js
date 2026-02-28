@@ -149,16 +149,24 @@ class Maze {
 
         // Add some random holes to make it less restrictive
         for (let i = 0; i < (this.rows * this.cols) / 5; i++) {
-            const r = Math.floor(Math.random() * (this.rows - 1)) + 1;
-            const c = Math.floor(Math.random() * (this.cols - 1)) + 1;
+            const r = Math.floor(Math.random() * this.rows);
+            const c = Math.floor(Math.random() * this.cols);
             const walls = Object.keys(this.cells[r][c].walls);
             const wall = walls[Math.floor(Math.random() * walls.length)];
 
-            this.cells[r][c].walls[wall] = false;
-            if (wall === 'top') this.cells[r - 1][c].walls.bottom = false;
-            if (wall === 'bottom') this.cells[r + 1][c].walls.top = false;
-            if (wall === 'left') this.cells[r][c - 1].walls.right = false;
-            if (wall === 'right') this.cells[r][c + 1].walls.left = false;
+            if (wall === 'top' && r > 0) {
+                this.cells[r][c].walls.top = false;
+                this.cells[r - 1][c].walls.bottom = false;
+            } else if (wall === 'bottom' && r < this.rows - 1) {
+                this.cells[r][c].walls.bottom = false;
+                this.cells[r + 1][c].walls.top = false;
+            } else if (wall === 'left' && c > 0) {
+                this.cells[r][c].walls.left = false;
+                this.cells[r][c - 1].walls.right = false;
+            } else if (wall === 'right' && c < this.cols - 1) {
+                this.cells[r][c].walls.right = false;
+                this.cells[r][c + 1].walls.left = false;
+            }
         }
     }
 
@@ -599,6 +607,7 @@ function startGame(count) {
 }
 
 function initRound() {
+    console.log("Initializing round...");
     maze = new Maze(ROWS, COLS);
     tanks = [];
     powerUps = [];
