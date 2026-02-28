@@ -542,8 +542,47 @@ class Bullet {
             ctx.shadowColor = this.color;
         }
 
-        ctx.beginPath();
-        if (this.type === 'wireless') {
+        if (this.type === 'homing') {
+            // Missile Design
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+
+            // Flame flicker
+            const flicker = Math.random() * 5;
+            ctx.fillStyle = '#FF5722';
+            ctx.beginPath();
+            ctx.moveTo(-8 - flicker, 0);
+            ctx.lineTo(-4, 3);
+            ctx.lineTo(-4, -3);
+            ctx.fill();
+
+            // Missile body
+            ctx.fillStyle = '#555';
+            ctx.fillRect(-4, -3, 8, 6);
+
+            // Nose cone
+            ctx.fillStyle = '#f44336';
+            ctx.beginPath();
+            ctx.moveTo(4, -3);
+            ctx.lineTo(8, 0);
+            ctx.lineTo(4, 3);
+            ctx.fill();
+        } else if (this.type === 'ghost') {
+            // Ethereal Beam Design
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+
+            const gradient = ctx.createLinearGradient(-15, 0, 0, 0);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(0.5, 'rgba(255, 0, 255, 0.5)');
+            gradient.addColorStop(1, '#ff00ff');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-15, -2, 15, 4);
+
+            ctx.fillStyle = '#fff'; // White core
+            ctx.fillRect(-2, -1, 4, 2);
+        } else if (this.type === 'wireless') {
             // Triangle/Missile shape
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
@@ -551,10 +590,11 @@ class Bullet {
             ctx.lineTo(-6, 5);
             ctx.lineTo(-6, -5);
             ctx.closePath();
+            ctx.fill();
         } else {
             ctx.arc(this.x, this.y, BULLET_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
         }
-        ctx.fill();
         ctx.restore();
     }
 }
