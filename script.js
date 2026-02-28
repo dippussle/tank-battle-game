@@ -290,13 +290,22 @@ class Bullet {
 
         // Homing Logic
         if (this.type === 'homing' && now > this.homingStart && now < this.homingEnd) {
-            const target = tanks.find(t => t.alive && t.id !== this.owner); // Target an enemy tank
-            if (target) {
+            const enemies = tanks.filter(t => t.alive && t.id !== this.owner);
+            if (enemies.length > 0) {
+                // Find NEAREST enemy
+                const target = enemies.reduce((prev, curr) => {
+                    const dPrev = (prev.x - this.x) ** 2 + (prev.y - this.y) ** 2;
+                    const dCurr = (curr.x - this.x) ** 2 + (curr.y - this.y) ** 2;
+                    return dCurr < dPrev ? curr : prev;
+                });
+
                 const targetAngle = Math.atan2(target.y - this.y, target.x - this.x);
                 let diff = targetAngle - this.angle;
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
-                this.angle += diff * 0.05;
+
+                // Stronger steering (Lazer gibi hassas)
+                this.angle += diff * 0.08;
                 this.vx = Math.cos(this.angle) * BULLET_SPEED;
                 this.vy = Math.sin(this.angle) * BULLET_SPEED;
             }
@@ -599,6 +608,10 @@ class Tank {
 
     checkBulletHit(bullet) {
         if (!this.alive || !bullet.active) return false;
+
+        // Own bullet immunity for 500ms
+        if (bullet.owner === this.id && Date.now() - bullet.birth < 500) return false;
+
         const dist = Math.sqrt((this.x - bullet.x) ** 2 + (this.y - bullet.y) ** 2);
         return dist < TANK_SIZE / 2 + BULLET_RADIUS;
     }
