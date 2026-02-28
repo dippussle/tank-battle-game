@@ -28,6 +28,7 @@ const COLORS = {
     WALL: '#000000',
     GROUND: '#EEEEEE'
 };
+let portals = { blue: null, orange: null };
 
 // Input state
 const keys = {};
@@ -471,11 +472,55 @@ class Bullet {
         if (bounced) {
             this.bounces++;
             this.angle = Math.atan2(this.vy, this.vx);
-            // Bounce limit removed as per user request, using lifespan only
+
+            // Portal Gun Logic: Create portal on hit
+            if (this.type === 'portal_blue' || this.type === 'portal_orange') {
+                const wallNormal = { x: 0, y: 0 };
+                if (cell.walls.top && nextY < cy + m) wallNormal.y = 1;
+                else if (cell.walls.bottom && nextY > cy + CELL_SIZE - m) wallNormal.y = -1;
+                else if (cell.walls.left && nextX < cx + m) wallNormal.x = 1;
+                else if (cell.walls.right && nextX > cx + CELL_SIZE - m) wallNormal.x = -1;
+
+                const portalObj = { x: this.x, y: this.y, nx: wallNormal.x, ny: wallNormal.y };
+                if (this.type === 'portal_blue') portals.blue = portalObj;
+                else portals.orange = portalObj;
+
+                this.active = false; // Portal bullet dies on hit
+                return;
+            }
         }
 
-        this.x += this.vx;
-        this.y += this.vy;
+        // Apply Time Warp Slowdown (if inside any tank's field)
+        let speedMult = 1.0;
+        tanks.forEach(t => {
+            if (t.timeWarpActiveUntil > now && t.id !== this.owner) {
+                const d = Math.sqrt((this.x - t.x) ** 2 + (this.y - t.y) ** 2);
+                if (d < TANK_SIZE * 3) speedMult = 0.4;
+            }
+        });
+
+        this.x += this.vx * speedMult;
+        this.y += this.vy * speedMult;
+
+        // Portal Teleportation Check
+        if (portals.blue && portals.orange) {
+            const checkPortal = (pIn, pOut) => {
+                const d = Math.sqrt((this.x - pIn.x) ** 2 + (this.y - pIn.y) ** 2);
+                if (d < 15) {
+                    // Teleport to pOut
+                    this.x = pOut.x + pOut.nx * 20; // Offset from wall
+                    this.y = pOut.y + pOut.ny * 20;
+                    // Reset birth to prevent instant death if lifespan is short? No, keep it.
+                    // Flip velocity if exiting from same normal direction? 
+                    // Actually, let's just keep speed and angle but ensure it moves away from wall.
+                    if (pOut.nx !== 0) this.vx = Math.abs(this.vx) * pOut.nx;
+                    if (pOut.ny !== 0) this.vy = Math.abs(this.vy) * pOut.ny;
+                    this.angle = Math.atan2(this.vy, this.vx);
+                }
+            };
+            checkPortal(portals.blue, portals.orange);
+            checkPortal(portals.orange, portals.blue);
+        }
     }
 
     draw() {
@@ -519,7 +564,7 @@ class PowerUp {
     constructor(x, y, type) {
         this.x = x;
         this.y = y;
-        this.type = type; // 'homing', 'ghost'
+        this.type = type; // 'homing', 'ghost', 'wireless', 'timeWarp', 'portalGun'
         this.active = true;
     }
 
@@ -553,6 +598,10 @@ class PowerUp {
         } else if (this.type === 'wireless') {
             // Wireless icon (W)
             ctx.fillText('W', 0, 0);
+        } else if (this.type === 'timeWarp') {
+            ctx.fillText('⏳', 0, 0);
+        } else if (this.type === 'portalGun') {
+            ctx.fillText('◎', 0, 0);
         } else {
             // Ghost icon (☰)
             ctx.fillText('☰', 0, 0);
@@ -576,8 +625,10 @@ class Tank {
         this.bullets = [];
         this.lastShot = 0;
         this.shootDelay = 300;
-        this.powerUp = null; // 'homing', 'ghost', or 'wireless'
+        this.powerUp = null; // 'homing', 'ghost', 'wireless', 'timeWarp', 'portalGun'
         this.activeWirelessMissile = null;
+        this.timeWarpActiveUntil = 0;
+        this.portalsCreated = 0;
         this.turretAngle = startPos.angle;
         this.joystickInput = { x: 0, y: 0 };
         this.firePressed = false;
@@ -634,13 +685,35 @@ class Tank {
             }
         }
 
-        if (!maze.checkWallCollision(this.x + moveX, this.y + moveY, TANK_SIZE / 2)) {
-            this.x += moveX;
-            this.y += moveY;
-        } else if (!maze.checkWallCollision(this.x + moveX, this.y, TANK_SIZE / 2)) {
-            this.x += moveX;
-        } else if (!maze.checkWallCollision(this.x, this.y + moveY, TANK_SIZE / 2)) {
-            this.y += moveY;
+        // Apply Time Warp Slowdown (if inside any tank's field)
+        let speedMult = 1.0;
+        tanks.forEach(t => {
+            if (t.timeWarpActiveUntil > Date.now() && t.id !== this.id) {
+                const d = Math.sqrt((this.x - t.x) ** 2 + (this.y - t.y) ** 2);
+                if (d < TANK_SIZE * 3) speedMult = 0.4;
+            }
+        });
+
+        if (!maze.checkWallCollision(this.x + moveX * speedMult, this.y + moveY * speedMult, TANK_SIZE / 2)) {
+            this.x += moveX * speedMult;
+            this.y += moveY * speedMult;
+        } else if (!maze.checkWallCollision(this.x + moveX * speedMult, this.y, TANK_SIZE / 2)) {
+            this.x += moveX * speedMult;
+        } else if (!maze.checkWallCollision(this.x, this.y + moveY * speedMult, TANK_SIZE / 2)) {
+            this.y += moveY * speedMult;
+        }
+
+        // Portal Teleportation Check (Tank)
+        if (portals.blue && portals.orange) {
+            const checkPortal = (pIn, pOut) => {
+                const d = Math.sqrt((this.x - pIn.x) ** 2 + (this.y - pIn.y) ** 2);
+                if (d < 20) {
+                    this.x = pOut.x + pOut.nx * 25;
+                    this.y = pOut.y + pOut.ny * 25;
+                }
+            };
+            checkPortal(portals.blue, portals.orange);
+            checkPortal(portals.orange, portals.blue);
         }
 
         // Shooting
@@ -653,14 +726,26 @@ class Tank {
                 let bulletType = 'normal';
                 if (this.powerUp) {
                     bulletType = this.powerUp;
-                    this.powerUp = null; // Use powerup once
                 }
 
-                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
-                this.bullets.push(newBullet);
+                if (bulletType === 'timeWarp') {
+                    this.timeWarpActiveUntil = Date.now() + 8000;
+                    this.powerUp = null;
+                } else if (bulletType === 'portalGun') {
+                    // Handle portal gun: alternate between blue and orange
+                    const type = (this.portalsCreated % 2 === 0) ? 'portal_blue' : 'portal_orange';
+                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, type);
+                    this.bullets.push(newBullet);
+                    this.portalsCreated++;
+                    if (this.portalsCreated % 2 === 0) this.powerUp = null; // Use after 2 shots
+                } else {
+                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
+                    this.bullets.push(newBullet);
 
-                if (bulletType === 'wireless') {
-                    this.activeWirelessMissile = newBullet;
+                    if (bulletType === 'wireless') {
+                        this.activeWirelessMissile = newBullet;
+                    }
+                    if (this.powerUp) this.powerUp = null; // Use powerup once
                 }
 
                 this.lastShot = Date.now();
@@ -716,6 +801,20 @@ class Tank {
         ctx.restore();
         ctx.restore();
 
+        // Time Warp Field Visual
+        if (this.timeWarpActiveUntil > Date.now()) {
+            ctx.save();
+            ctx.beginPath();
+            const pulse = 1 + Math.sin(Date.now() / 200) * 0.1;
+            ctx.arc(this.x, this.y, TANK_SIZE * 3 * pulse, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Power-up Indicator above tank
         if (this.powerUp) {
             ctx.save();
@@ -731,7 +830,11 @@ class Tank {
                 ctx.fill();
             } else if (this.powerUp === 'wireless') {
                 ctx.fillText('W', 0, 0);
-            } else {
+            } else if (this.powerUp === 'timeWarp') {
+                ctx.fillText('⏳', 0, 0);
+            } else if (this.powerUp === 'portalGun') {
+                ctx.fillText('◎', 0, 0);
+            } else if (this.powerUp === 'ghost') {
                 ctx.fillText('☰', 0, 0);
             }
             ctx.restore();
@@ -838,7 +941,7 @@ function update() {
     // Handle Power-up spawning
     if (Date.now() > nextPowerUpTime) {
         const pos = maze.getRandomEmptyCell();
-        const types = ['homing', 'ghost', 'wireless'];
+        const types = ['homing', 'ghost', 'wireless', 'timeWarp', 'portalGun'];
         const type = types[Math.floor(Math.random() * types.length)]; // Equal 1/3 odds
 
         powerUps.push(new PowerUp(pos.x, pos.y, type));
@@ -898,6 +1001,33 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (maze) maze.draw();
+
+    // Draw Portals
+    if (portals.blue) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.translate(portals.blue.x, portals.blue.y);
+        ctx.rotate(Math.atan2(portals.blue.ny, portals.blue.nx));
+        ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#2196F3';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#2196F3';
+        ctx.fill();
+        ctx.restore();
+    }
+    if (portals.orange) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.translate(portals.orange.x, portals.orange.y);
+        ctx.rotate(Math.atan2(portals.orange.ny, portals.orange.nx));
+        ctx.ellipse(0, 0, 15, 5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#FF9800';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#FF9800';
+        ctx.fill();
+        ctx.restore();
+    }
+
     powerUps.forEach(pu => pu.draw());
     tanks.forEach(tank => tank.draw());
 
