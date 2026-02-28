@@ -32,48 +32,80 @@ body {
 }
 
 #game-wrapper {
-    display: flex;
+    display: grid;
+    grid-template-columns: 180px 1fr 180px;
+    grid-template-rows: 1fr 1fr;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    width: 95%;
-    max-width: 1400px;
-    height: 90%;
+    justify-items: center;
+    gap: 10px;
+    width: 98%;
+    height: 98%;
 }
 
 #game-container {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     position: relative;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
     background-color: var(--bg-color);
-    border: 10px solid #333;
+    border: 8px solid #333;
     border-radius: 10px;
     overflow: hidden;
-    flex-shrink: 1;
+    display: flex;
 }
 
 canvas {
     display: block;
     background-color: var(--bg-color);
     max-width: 100%;
-    max-height: 80vh;
+    max-height: 85vh;
     object-fit: contain;
+    margin: auto;
 }
 
-/* Touch Controls Layout */
+/* Touch Controls Positioning */
 .touch-controls {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 30px;
-    padding: 20px;
+    gap: 15px;
+    padding: 15px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 20px;
-    min-width: 150px;
+    min-width: 140px;
+}
+
+.touch-controls.hidden {
+    display: none;
+}
+
+.p1-side {
+    grid-column: 1;
+    grid-row: 1;
+    border-left: 5px solid var(--p1-color);
+}
+
+.p3-side {
+    grid-column: 1;
+    grid-row: 2;
+    border-left: 5px solid var(--p3-color);
+}
+
+.p2-side {
+    grid-column: 3;
+    grid-row: 1;
+    border-right: 5px solid var(--p2-color);
+}
+
+.p4-side {
+    grid-column: 3;
+    grid-row: 2;
+    border-right: 5px solid var(--p4-color);
 }
 
 .joystick-container {
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     position: relative;
@@ -82,8 +114,8 @@ canvas {
 }
 
 .joystick-knob {
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     background: white;
     border-radius: 50%;
     position: absolute;
@@ -94,36 +126,43 @@ canvas {
 }
 
 .fire-btn {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    background: #ff5252;
     border: none;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-family: var(--font-heading);
-    box-shadow: 0 10px 0 #b33939;
     cursor: pointer;
     user-select: none;
     touch-action: manipulation;
 }
 
+.p1-btn {
+    background: var(--p1-color);
+    box-shadow: 0 8px 0 #b33939;
+}
+
+.p2-btn {
+    background: var(--p2-color);
+    box-shadow: 0 8px 0 #2c5aa0;
+}
+
+.p3-btn {
+    background: var(--p3-color);
+    box-shadow: 0 8px 0 #2d6a30;
+}
+
+.p4-btn {
+    background: var(--p4-color);
+    box-shadow: 0 8px 0 #b2a428;
+    color: black;
+}
+
 .fire-btn:active {
-    transform: translateY(5px);
-    box-shadow: 0 5px 0 #b33939;
+    transform: translateY(4px);
+    box-shadow: none !important;
 }
-
-.p2-side .fire-btn {
-    background: #448aff;
-    box-shadow: 0 10px 0 #2c5aa0;
-}
-
-.p2-side .fire-btn:active {
-    box-shadow: 0 5px 0 #2c5aa0;
-}
-
-/* Hidden by default on desktop? User wants them outside for touch use. */
-/* We keep them visible for now. */
 
 .overlay {
     position: absolute;
@@ -151,7 +190,7 @@ canvas {
     text-align: center;
     padding: 2rem;
     border-radius: 20px;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -174,6 +213,18 @@ h1 {
 }
 
 button.menu-btn {
-    padding: 0.8rem 1.5rem;
-    font-size: 1rem;
+    padding: 1rem 1.5rem;
+    font-size: 1.1rem;
+    background: transparent;
+    color: white;
+    border: 2px solid white;
+    cursor: pointer;
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    transition: all 0.2s;
+}
+
+button.menu-btn:hover {
+    background: white;
+    color: black;
 }

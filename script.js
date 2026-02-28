@@ -6,8 +6,8 @@ const winnerMessage = document.getElementById('winner-message');
 
 // Game constants
 const CELL_SIZE = 60; // Reduced for "smaller" map
-const ROWS = 9;
-const COLS = 13;
+const ROWS = 11;
+const COLS = 11;
 const WALL_THICKNESS = 4;
 const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
@@ -36,59 +36,62 @@ window.addEventListener('keyup', (e) => keys[e.code] = false);
 
 // Joystick Class
 class Joystick {
-    constructor(containerId, onChange) {
-        this.container = document.getElementById(containerId);
-        if (!this.container) return;
+    if(this.container._joystick) return this.container._joystick;
+this.container._joystick = this;
 
-        this.knob = document.createElement('div');
-        this.knob.className = 'joystick-knob';
-        this.container.appendChild(this.knob);
+this.knob = document.createElement('div');
+this.knob.className = 'joystick-knob';
+this.container.appendChild(this.knob);
 
-        this.active = false;
-        this.origin = { x: 0, y: 0 };
-        this.input = { x: 0, y: 0 };
-        this.onChange = onChange;
+this.active = false;
+this.origin = { x: 0, y: 0 };
+this.input = { x: 0, y: 0 };
+this.onChange = onChange;
 
-        this.container.addEventListener('touchstart', (e) => this.start(e.touches[0]), { passive: false });
-        this.container.addEventListener('mousedown', (e) => this.start(e));
+const handleStart = (e) => this.start(e.touches ? e.touches[0] : e);
+const handleMove = (e) => this.move(e.touches ? e.touches[0] : e);
+const handleEnd = () => this.end();
 
-        window.addEventListener('touchmove', (e) => this.move(e.touches[0]), { passive: false });
-        window.addEventListener('mousemove', (e) => this.move(e));
+this.container.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
+this.container.addEventListener('mousedown', handleStart);
 
-        window.addEventListener('touchend', () => this.end());
-        window.addEventListener('mouseup', () => this.end());
+window.addEventListener('touchmove', handleMove, { passive: false });
+window.addEventListener('mousemove', handleMove);
+
+window.addEventListener('touchend', handleEnd);
+window.addEventListener('mouseup', handleEnd);
     }
 
-    start(e) {
-        this.active = true;
-        const rect = this.container.getBoundingClientRect();
-        this.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        this.move(e);
-    }
+start(e) {
+    this.active = true;
+    const rect = this.container.getBoundingClientRect();
+    this.origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    this.move(e);
+}
 
-    move(e) {
-        if (!this.active) return;
-        const dx = e.clientX - this.origin.x;
-        const dy = e.clientY - this.origin.y;
-        const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
-        const angle = Math.atan2(dy, dx);
+move(e) {
+    if (!this.active) return;
+    const dx = e.clientX - this.origin.x;
+    const dy = e.clientY - this.origin.y;
+    const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+    const angle = Math.atan2(dy, dx);
 
-        const x = Math.cos(angle) * dist;
-        const y = Math.sin(angle) * dist;
+    const x = Math.cos(angle) * dist;
+    const y = Math.sin(angle) * dist;
 
-        this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+    this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
-        this.input = { x: x / 60, y: y / 60 };
-        if (this.onChange) this.onChange(this.input);
-    }
+    this.input = { x: x / 60, y: y / 60 };
+    if (this.onChange) this.onChange(this.input);
+}
 
-    end() {
-        if (!this.active) return;
-        this.active = false;
-        this.knob.style.transform = `translate(-50%, -50%)`;
-        this.input = { x: 0, y: 0 };
-        if (this.onChange) this.onChange(this.input);
-    }
+end() {
+    if (!this.active) return;
+    this.active = false;
+    this.knob.style.transform = `translate(-50%, -50%)`;
+    this.input = { x: 0, y: 0 };
+    if (this.onChange) this.onChange(this.input);
+}
 }
 
 // Maze Class
@@ -276,7 +279,8 @@ class Bullet {
         if (!this.active) return;
 
         const now = Date.now();
-        if (now - this.birth > (this.type === 'homing' ? 20000 : BULLET_LIFESPAN)) {
+        const life = this.type === 'homing' ? 20000 : BULLET_LIFESPAN;
+        if (now - this.birth > life) {
             this.active = false;
             return;
         }
@@ -622,29 +626,38 @@ function initRound() {
         { x: CELL_SIZE / 2, y: canvas.height - CELL_SIZE / 2, angle: -Math.PI / 2 }
     ];
 
+    // Clear and Show required joysticks
+    document.querySelectorAll('.touch-controls').forEach(el => el.classList.add('hidden'));
+
     for (let i = 0; i < playerCount; i++) {
-        const tank = new Tank(PLAYER_CONFIGS[i].id, PLAYER_CONFIGS[i].color, spawnPoints[i], PLAYER_CONFIGS[i].controls);
+        const config = PLAYER_CONFIGS[i];
+        const tank = new Tank(config.id, config.color, spawnPoints[i], config.controls);
         tanks.push(tank);
 
-        // Link Joysticks if they exist
-        if (i === 0) {
-            new Joystick('p1-joystick', (input) => tank.joystickInput = input);
-            const fireBtn = document.getElementById('p1-fire');
-            if (fireBtn) {
-                fireBtn.addEventListener('mousedown', () => tank.firePressed = true);
-                fireBtn.addEventListener('mouseup', () => tank.firePressed = false);
-                fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
-                fireBtn.addEventListener('touchend', () => tank.firePressed = false);
+        // UI Setup
+        const controlId = `p${i + 1}-controls`;
+        const controlEl = document.getElementById(controlId);
+        if (controlEl) {
+            controlEl.classList.remove('hidden');
+
+            // Re-link or create joystick
+            let joy = document.getElementById(`p${i + 1}-joystick`)._joystick;
+            if (!joy) {
+                joy = new Joystick(`p${i + 1}-joystick`, (input) => tank.joystickInput = input);
+            } else {
+                joy.onChange = (input) => tank.joystickInput = input;
             }
-        }
-        if (i === 1) {
-            new Joystick('p2-joystick', (input) => tank.joystickInput = input);
-            const fireBtn = document.getElementById('p2-fire');
+
+            const fireBtn = document.getElementById(`p${i + 1}-fire`);
             if (fireBtn) {
-                fireBtn.addEventListener('mousedown', () => tank.firePressed = true);
-                fireBtn.addEventListener('mouseup', () => tank.firePressed = false);
-                fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
-                fireBtn.addEventListener('touchend', () => tank.firePressed = false);
+                // Re-add listeners using a clean approach
+                const newFireBtn = fireBtn.cloneNode(true);
+                fireBtn.parentNode.replaceChild(newFireBtn, fireBtn);
+
+                newFireBtn.addEventListener('mousedown', () => tank.firePressed = true);
+                newFireBtn.addEventListener('mouseup', () => tank.firePressed = false);
+                newFireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
+                newFireBtn.addEventListener('touchend', () => tank.firePressed = false);
             }
         }
     }

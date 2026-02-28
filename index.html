@@ -15,9 +15,15 @@
 
 <body>
     <div id="game-wrapper">
-        <div id="p1-controls" class="touch-controls p1-side">
+        <!-- Control Slots -->
+        <div id="p1-controls" class="touch-controls p1-side hidden">
             <div class="joystick-container" id="p1-joystick"></div>
-            <button class="fire-btn" id="p1-fire">Q</button>
+            <button class="fire-btn p1-btn" id="p1-fire">Q</button>
+        </div>
+
+        <div id="p3-controls" class="touch-controls p3-side hidden">
+            <div class="joystick-container" id="p3-joystick"></div>
+            <button class="fire-btn p3-btn" id="p3-fire">U</button>
         </div>
 
         <div id="game-container">
@@ -28,9 +34,9 @@
                     <h1>TANK TROUBLE</h1>
                     <p>Select number of players:</p>
                     <div class="button-group">
-                        <button onclick="startGame(2)">2 Players</button>
-                        <button onclick="startGame(3)">3 Players</button>
-                        <button onclick="startGame(4)">4 Players</button>
+                        <button class="menu-btn" onclick="startGame(2)">2 Players</button>
+                        <button class="menu-btn" onclick="startGame(3)">3 Players</button>
+                        <button class="menu-btn" onclick="startGame(4)">4 Players</button>
                     </div>
                 </div>
             </div>
@@ -43,8 +49,13 @@
             </div>
         </div>
 
-        <div id="p2-controls" class="touch-controls p2-side">
-            <button class="fire-btn" id="p2-fire">M</button>
+        <div id="p4-controls" class="touch-controls p4-side hidden">
+            <button class="fire-btn p4-btn" id="p4-fire">0</button>
+            <div class="joystick-container" id="p4-joystick"></div>
+        </div>
+
+        <div id="p2-controls" class="touch-controls p2-side hidden">
+            <button class="fire-btn p2-btn" id="p2-fire">M</button>
             <div class="joystick-container" id="p2-joystick"></div>
         </div>
     </div>
