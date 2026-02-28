@@ -846,7 +846,7 @@ class Tank {
             ctx.save();
             ctx.beginPath();
             const pulse = 1 + Math.sin(Date.now() / 200) * 0.1;
-            ctx.arc(this.x, this.y, TANK_SIZE * 3 * pulse, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, TANK_SIZE * 5 * pulse, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
             ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
             ctx.lineWidth = 2;
@@ -982,7 +982,7 @@ function update() {
     // Handle Power-up spawning
     if (Date.now() > nextPowerUpTime) {
         const pos = maze.getRandomEmptyCell();
-        const types = ['homing', 'ghost', 'wireless', 'timeWarp', 'portalGun'];
+        const types = ['homing', 'homing', 'ghost', 'ghost', 'wireless', 'wireless', 'timeWarp', 'portalGun'];
         const type = types[Math.floor(Math.random() * types.length)]; // Equal 1/3 odds
 
         powerUps.push(new PowerUp(pos.x, pos.y, type));
