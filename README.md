@@ -27,9 +27,7 @@ A classic web-based tank battle game built with HTML5 Canvas and Vanilla JavaScr
 - **Move**: 8456 (Numpad)
 - **Shoot**: 0 (Numpad)
 
-## Getting Started
-
-Simply open `index.html` in your web browser to start playing!
+Link:https://dippussle.github.io/tank-battle-game/
 
 ## Development
 
