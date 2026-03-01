@@ -48,13 +48,57 @@ class Joystick {
         this.container.appendChild(this.knob);
 
         this.active = false;
+        this.touchId = null;
         this.origin = { x: 0, y: 0 };
         this.input = { x: 0, y: 0 };
         this.onChange = onChange;
 
-        const handleStart = (e) => this.start(e.touches ? e.touches[0] : e);
-        const handleMove = (e) => this.move(e.touches ? e.touches[0] : e);
-        const handleEnd = () => this.end();
+        const handleStart = (e) => {
+            if (e.touches) {
+                // Multi-touch: use the touch that just started on this container
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    this.touchId = t.identifier;
+                    this.start(t);
+                    break;
+                }
+            } else {
+                this.start(e);
+            }
+        };
+
+        const handleMove = (e) => {
+            if (!this.active) return;
+            if (e.touches) {
+                // Multi-touch: find the specific touch we are tracking
+                for (let i = 0; i < e.touches.length; i++) {
+                    const t = e.touches[i];
+                    if (t.identifier === this.touchId) {
+                        this.move(t);
+                        break;
+                    }
+                }
+            } else {
+                this.move(e);
+            }
+        };
+
+        const handleEnd = (e) => {
+            if (!this.active) return;
+            if (e.touches) {
+                // Multi-touch: check if our touch ended
+                let ended = false;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === this.touchId) {
+                        ended = true;
+                        break;
+                    }
+                }
+                if (ended) this.end();
+            } else {
+                this.end();
+            }
+        };
 
         this.container.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
         this.container.addEventListener('mousedown', handleStart);
@@ -64,6 +108,7 @@ class Joystick {
 
         window.addEventListener('touchend', handleEnd);
         window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchcancel', handleEnd);
     }
 
     start(e) {
@@ -90,8 +135,8 @@ class Joystick {
     }
 
     end() {
-        if (!this.active) return;
         this.active = false;
+        this.touchId = null;
         this.knob.style.transform = `translate(-50%, -50%)`;
         this.input = { x: 0, y: 0 };
         if (this.onChange) this.onChange(this.input);
