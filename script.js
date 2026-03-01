@@ -199,25 +199,53 @@ class Maze {
             }
         }
 
-        // Add some random holes to make it less restrictive
-        for (let i = 0; i < (this.rows * this.cols) / 5; i++) {
+        // Guaranteed Passages: Ensure the map isn't split in two by clearing middle walls
+        const midR = Math.floor(this.rows / 2);
+        const midC = Math.floor(this.cols / 2);
+
+        // Horizontal passage across the middle column
+        for (let i = 0; i < 3; i++) {
+            const r = Math.floor(Math.random() * (this.rows - 1));
+            this.cells[r][midC].walls.right = false;
+            this.cells[r][midC + 1].walls.left = false;
+        }
+        // Vertical passage across the middle row
+        for (let i = 0; i < 3; i++) {
+            const c = Math.floor(Math.random() * (this.cols - 1));
+            this.cells[midR][c].walls.bottom = false;
+            this.cells[midR + 1][c].walls.top = false;
+        }
+
+        // Add more random holes (Braid) to increase flow (1/3 cells)
+        for (let i = 0; i < (this.rows * this.cols) / 3; i++) {
             const r = Math.floor(Math.random() * this.rows);
             const c = Math.floor(Math.random() * this.cols);
-            const walls = Object.keys(this.cells[r][c].walls);
-            const wall = walls[Math.floor(Math.random() * walls.length)];
 
-            if (wall === 'top' && r > 0) {
-                this.cells[r][c].walls.top = false;
-                this.cells[r - 1][c].walls.bottom = false;
-            } else if (wall === 'bottom' && r < this.rows - 1) {
-                this.cells[r][c].walls.bottom = false;
-                this.cells[r + 1][c].walls.top = false;
-            } else if (wall === 'left' && c > 0) {
-                this.cells[r][c].walls.left = false;
-                this.cells[r][c - 1].walls.right = false;
-            } else if (wall === 'right' && c < this.cols - 1) {
-                this.cells[r][c].walls.right = false;
-                this.cells[r][c + 1].walls.left = false;
+            const cell = this.cells[r][c];
+            let wallCount = 0;
+            if (cell.walls.top) wallCount++;
+            if (cell.walls.bottom) wallCount++;
+            if (cell.walls.left) wallCount++;
+            if (cell.walls.right) wallCount++;
+
+            // Only remove if it's a dead-end OR a low random chance to avoid total openness
+            if (wallCount >= 3 || Math.random() < 0.2) {
+                const walls = Object.keys(cell.walls);
+                const wall = walls[Math.floor(Math.random() * walls.length)];
+
+                if (wall === 'top' && r > 0) {
+                    this.cells[r][c].walls.top = false;
+                    this.cells[r - 1][c].walls.bottom = false;
+                } else if (wall === 'bottom' && r < this.rows - 1) {
+                    this.cells[r][c].walls.bottom = false;
+                    this.cells[r + 1][c].walls.top = false;
+                } else if (wall === 'left' && c > 0) {
+                    this.cells[r][c].walls.left = false;
+                    this.cells[r][c - 1].walls.right = false;
+                } else if (wall === 'right' && c < this.cols - 1) {
+                    this.cells[r][c].walls.right = false;
+                    this.cells[r][c + 1].walls.left = false;
+                }
             }
         }
     }
