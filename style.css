@@ -70,14 +70,15 @@ canvas {
     align-items: center;
     gap: 15px;
     padding: 15px;
-    margin: 15px;
+    margin: 10px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 20px;
     min-width: 140px;
+    z-index: 100;
 }
 
 .touch-controls.hidden {
-    display: none;
+    display: none !important;
 }
 
 .p1-side {
@@ -176,7 +177,7 @@ canvas {
     justify-content: center;
     align-items: center;
     color: white;
-    z-index: 10;
+    z-index: 200;
     backdrop-filter: blur(8px);
     transition: opacity 0.5s ease;
 }
@@ -227,13 +228,134 @@ button.menu-btn:hover {
     color: black;
 }
 
+/* Version Tag */
 #version-tag {
     position: fixed;
-    bottom: 10px;
-    right: 15px;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
     font-family: var(--font-heading);
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
     pointer-events: none;
-    z-index: 100;
+    z-index: 1000;
+}
+
+/* Responsive Adjustments - The Core Fix */
+@media (max-width: 1024px) {
+    #game-wrapper {
+        display: block;
+        /* Break the grid for mobile/tablets */
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    #game-container {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90vw;
+        height: auto;
+        max-height: 90vh;
+        margin: 0;
+        z-index: 10;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 1);
+    }
+
+    canvas {
+        max-width: 100%;
+        max-height: 90vh;
+    }
+
+    /* Corner Positioning for 4 players */
+    .touch-controls {
+        position: absolute;
+        min-width: 80px;
+        padding: 5px;
+        margin: 0;
+        background: transparent;
+        gap: 5px;
+        border: none !important;
+    }
+
+    .joystick-container {
+        width: 80px;
+        height: 80px;
+    }
+
+    .joystick-knob {
+        width: 40px;
+        height: 40px;
+    }
+
+    .fire-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 0.9rem;
+    }
+
+    /* P1: Bottom Left */
+    .p1-side {
+        left: 10px;
+        bottom: 10px;
+        flex-direction: column-reverse;
+    }
+
+    /* P2: Bottom Right */
+    .p2-side {
+        right: 10px;
+        bottom: 10px;
+        flex-direction: column-reverse;
+    }
+
+    /* P3: Top Left */
+    .p3-side {
+        left: 10px;
+        top: 10px;
+        flex-direction: column;
+    }
+
+    /* P4: Top Right */
+    .p4-side {
+        right: 10px;
+        top: 10px;
+        flex-direction: column;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .menu-content {
+        padding: 1rem;
+        scale: 0.9;
+    }
+}
+
+@media (max-width: 600px) {
+    .joystick-container {
+        width: 70px;
+        height: 70px;
+    }
+
+    .fire-btn {
+        width: 50px;
+        height: 50px;
+    }
+
+    h1 {
+        font-size: 1.2rem;
+    }
+
+    .button-group {
+        flex-wrap: wrap;
+    }
+
+    button.menu-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
 }
