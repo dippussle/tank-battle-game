@@ -392,7 +392,7 @@ class Bullet {
         this.birth = Date.now();
         this.active = true;
         this.homingStart = Date.now() + 2500; // Reduced to 2.5s
-        this.homingEnd = Date.now() + 20000;
+        this.homingEnd = Date.now() + 15000;
         this.path = [];
         this.lastPathUpdate = 0;
         this.thrust = 0.1; // For wireless control
@@ -402,7 +402,7 @@ class Bullet {
         if (!this.active) return;
 
         const now = Date.now();
-        const life = this.type === 'homing' ? 20000 : BULLET_LIFESPAN;
+        const life = this.type === 'homing' ? 15000 : (this.type === 'wireless' ? 20000 : BULLET_LIFESPAN);
         if (now - this.birth > life) {
             this.active = false;
             return;
@@ -1054,8 +1054,8 @@ function scheduleNextPowerUp() {
 function update() {
     if (gameState !== 'PLAYING') return;
 
-    // Handle Power-up spawning
-    if (Date.now() > nextPowerUpTime) {
+    // Handle Power-up spawning (Max 5 boxes)
+    if (Date.now() > nextPowerUpTime && powerUps.filter(p => p.active).length < 5) {
         const pos = maze.getRandomEmptyCell();
         const types = ['homing', 'homing', 'ghost', 'ghost', 'wireless', 'wireless', 'timeWarp', 'portalGun'];
         const type = types[Math.floor(Math.random() * types.length)]; // Equal 1/3 odds
