@@ -241,15 +241,24 @@ button.menu-btn:hover {
     z-index: 1000;
 }
 
-/* Responsive Adjustments - The Core Fix */
+/* Responsive Adjustments - Bulletproof Fix */
 @media (max-width: 1024px) {
+    body {
+        position: fixed;
+        /* Prevent bouncy scrolling on iOS */
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        touch-action: none;
+    }
+
     #game-wrapper {
         display: block;
-        /* Break the grid for mobile/tablets */
         position: relative;
-        width: 100vw;
-        height: 100vh;
+        width: 100dvw;
+        height: 100dvh;
         overflow: hidden;
+        touch-action: none;
     }
 
     #game-container {
@@ -257,33 +266,40 @@ button.menu-btn:hover {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 90vw;
+        width: 95dvw;
         height: auto;
-        max-height: 90vh;
+        max-height: 70dvh;
+        /* Guaranteed space for controls */
         margin: 0;
-        z-index: 10;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 1);
+        z-index: 5;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        border-width: 4px;
     }
 
     canvas {
-        max-width: 100%;
-        max-height: 90vh;
+        width: 100%;
+        height: auto;
+        max-height: 70dvh;
+        object-fit: contain;
     }
 
-    /* Corner Positioning for 4 players */
     .touch-controls {
         position: absolute;
         min-width: 80px;
         padding: 5px;
         margin: 0;
-        background: transparent;
+        background: rgba(255, 255, 255, 0.05);
+        /* Subtle bg to see them */
         gap: 5px;
         border: none !important;
+        z-index: 100;
+        border-radius: 15px;
+        backdrop-filter: blur(4px);
     }
 
     .joystick-container {
-        width: 80px;
-        height: 80px;
+        width: 85px;
+        height: 85px;
     }
 
     .joystick-knob {
@@ -292,37 +308,41 @@ button.menu-btn:hover {
     }
 
     .fire-btn {
-        width: 60px;
-        height: 60px;
+        width: 65px;
+        height: 65px;
         font-size: 0.9rem;
     }
 
     /* P1: Bottom Left */
     .p1-side {
         left: 10px;
-        bottom: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
+        border-left: 4px solid var(--p1-color);
     }
 
     /* P2: Bottom Right */
     .p2-side {
         right: 10px;
-        bottom: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
+        border-right: 4px solid var(--p2-color);
     }
 
     /* P3: Top Left */
     .p3-side {
         left: 10px;
-        top: 10px;
+        top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
+        border-left: 4px solid var(--p3-color);
     }
 
     /* P4: Top Right */
     .p4-side {
         right: 10px;
-        top: 10px;
+        top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
+        border-right: 4px solid var(--p4-color);
     }
 
     h1 {
@@ -330,32 +350,20 @@ button.menu-btn:hover {
     }
 
     .menu-content {
-        padding: 1rem;
-        scale: 0.9;
+        padding: 1.5rem;
+        transform: scale(0.9);
     }
 }
 
-@media (max-width: 600px) {
-    .joystick-container {
-        width: 70px;
-        height: 70px;
+@media (max-height: 500px) and (orientation: landscape) {
+
+    /* Special landscape optimization for small phones */
+    #game-container {
+        width: 60dvw;
+        max-height: 95dvh;
     }
 
-    .fire-btn {
-        width: 50px;
-        height: 50px;
-    }
-
-    h1 {
-        font-size: 1.2rem;
-    }
-
-    .button-group {
-        flex-wrap: wrap;
-    }
-
-    button.menu-btn {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.8rem;
+    .touch-controls {
+        scale: 0.8;
     }
 }

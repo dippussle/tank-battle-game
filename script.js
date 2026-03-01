@@ -120,17 +120,25 @@ class Joystick {
 
     move(e) {
         if (!this.active) return;
-        const dx = e.clientX - this.origin.x;
-        const dy = e.clientY - this.origin.y;
-        const dist = Math.min(60, Math.sqrt(dx * dx + dy * dy));
+        const rect = this.container.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const dx = e.clientX - centerX;
+        const dy = e.clientY - centerY;
+
+        // Travel limit: container radius minus half knob radius
+        const maxTravel = rect.width / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const cappedDist = Math.min(maxTravel, dist);
         const angle = Math.atan2(dy, dx);
 
-        const x = Math.cos(angle) * dist;
-        const y = Math.sin(angle) * dist;
+        const x = Math.cos(angle) * cappedDist;
+        const y = Math.sin(angle) * cappedDist;
 
         this.knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
 
-        this.input = { x: x / 60, y: y / 60 };
+        this.input = { x: x / maxTravel, y: y / maxTravel };
         if (this.onChange) this.onChange(this.input);
     }
 
