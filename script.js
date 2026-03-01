@@ -735,8 +735,9 @@ class PowerUp {
 
 // Tank Class
 class Tank {
-    constructor(id, color, startPos, controls) {
+    constructor(id, name, color, startPos, controls) {
         this.id = id;
+        this.name = name;
         this.color = color;
         this.x = startPos.x;
         this.y = startPos.y;
@@ -964,6 +965,15 @@ class Tank {
         }
 
         this.bullets.forEach(b => b.draw());
+
+        // Player Name Label (As seen in the reference screenshots)
+        ctx.save();
+        ctx.translate(this.x, this.y - TANK_SIZE - 20);
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, 0, 0);
+        ctx.restore();
     }
 
     checkBulletHit(bullet) {
@@ -987,10 +997,10 @@ let playerCount = 2;
 let roundEnded = false;
 
 const PLAYER_CONFIGS = [
-    { id: 'P1', color: COLORS.P1, controls: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'KeyQ' } },
-    { id: 'P2', color: COLORS.P2, controls: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'KeyM' } },
-    { id: 'P3', color: COLORS.P3, controls: { up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL', fire: 'KeyU' } },
-    { id: 'P4', color: COLORS.P4, controls: { up: 'Numpad8', down: 'Numpad5', left: 'Numpad4', right: 'Numpad6', fire: 'Numpad0' } }
+    { id: 'P1', name: 'Player 1', color: COLORS.P1, controls: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'KeyQ' } },
+    { id: 'P2', name: 'Player 2', color: COLORS.P2, controls: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'KeyM' } },
+    { id: 'P3', name: 'Player 3', color: COLORS.P3, controls: { up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL', fire: 'KeyU' } },
+    { id: 'P4', name: 'Player 4', color: COLORS.P4, controls: { up: 'Numpad8', down: 'Numpad5', left: 'Numpad4', right: 'Numpad6', fire: 'Numpad0' } }
 ];
 
 function startGame(count) {
@@ -1022,7 +1032,7 @@ function initRound() {
 
     for (let i = 0; i < playerCount; i++) {
         const config = PLAYER_CONFIGS[i];
-        const tank = new Tank(config.id, config.color, spawnPoints[i], config.controls);
+        const tank = new Tank(config.id, config.name, config.color, spawnPoints[i], config.controls);
         tanks.push(tank);
 
         // UI Setup
