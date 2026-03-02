@@ -13,7 +13,7 @@ const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
 const BULLET_SPEED = 3.0;
 const MAX_BOUNCES = 1000;
-const BULLET_LIFESPAN = 12000;
+const BULLET_LIFESPAN = 15000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
 const TIME_WARP_RADIUS = TANK_SIZE * 4;
@@ -1095,101 +1095,23 @@ const GLOBAL_LOBBY_ID = `TANK_BATTLE_GLB_${LOBBY_VERSION}`;
 let currentLobbyIndex = 1;
 const MAX_LOBBIES = 3;
 
-function startOnline() {
+function startAsHost() {
     isOnline = true;
     gameState = 'LOBBY';
-    currentLobbyIndex = 1;
+    isHost = true;
     menuOverlay.classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
-    lobbyStatus.textContent = "Initializing Peer...";
+    lobbyStatus.textContent = "Creating Lobby...";
 
     if (peer) {
         peer.removeAllListeners();
         peer.destroy();
     }
 
-    peer = new Peer();
+    // Explicitly try to take the global ID
+    peer = new Peer(GLOBAL_LOBBY_ID);
 
     peer.on('open', (id) => {
-        myPeerId = id;
-        lobbyStatus.textContent = "Searching for matches...";
-        tryJoinHost();
-    });
-
-    peer.on('connection', (conn) => {
-        if (isHost) {
-            if (onlinePlayers.length < 4) {
-                setupConnection(conn);
-            } else {
-                conn.on('open', () => {
-                    conn.send({ type: 'LOBBY_FULL' });
-                    setTimeout(() => conn.close(), 500);
-                });
-            }
-        }
-    });
-
-    peer.on('error', (err) => {
-        console.error("Peer Global Error:", err.type);
-        if (err.type === 'peer-unavailable') {
-            handleNoHostFound();
-        } else if (err.type === 'id-taken') {
-            // If we failed to host LOBBY_1, try joining it instead
-            startOnline();
-        } else {
-            lobbyStatus.textContent = "Error: " + err.type;
-        }
-    });
-}
-
-function tryJoinHost() {
-    isHost = false;
-    const targetId = `${GLOBAL_LOBBY_ID}_${currentLobbyIndex}`;
-    lobbyStatus.textContent = `Searching Lobby #${currentLobbyIndex}...`;
-
-    const conn = peer.connect(targetId, { reliable: true });
-
-    let joinTimeout = setTimeout(() => {
-        if (!conn.open && !isHost) {
-            console.log(`Lobby #${currentLobbyIndex} not found, trying next...`);
-            conn.close();
-            handleNoHostFound();
-        }
-    }, 2500);
-
-    setupConnection(conn);
-}
-
-function handleNoHostFound() {
-    if (isHost) return;
-
-    if (currentLobbyIndex < MAX_LOBBIES) {
-        currentLobbyIndex++;
-        tryJoinHost();
-    } else {
-        // Scanned all, now try to host LOBBY_1 with a random delay
-        lobbyStatus.textContent = "No lobbies found. Waiting to host...";
-        const backoff = 500 + Math.random() * 2000;
-        setTimeout(() => {
-            if (gameState === 'LOBBY' && !isHost) {
-                tryBecomeHost();
-            }
-        }, backoff);
-    }
-}
-
-function tryBecomeHost() {
-    console.log("Becoming Host...");
-    if (peer) {
-        peer.removeAllListeners();
-        peer.destroy();
-    }
-
-    // Always try to host the FIRST lobby to group people
-    peer = new Peer(`${GLOBAL_LOBBY_ID}_1`);
-
-    peer.on('open', (id) => {
-        isHost = true;
         myPeerId = id;
         lobbyStatus.textContent = `Lobby Mode: HOST (#1)`;
         onlinePlayers = [{ peerId: id }];
@@ -1208,17 +1130,67 @@ function tryBecomeHost() {
     });
 
     peer.on('error', (err) => {
+        console.error("Host Error:", err.type);
         if (err.type === 'id-taken') {
-            console.log("Lobby #1 already taken, joining it...");
-            startOnline();
+            alert("A game is already being hosted! Please click 'Join Online' instead.");
+            cancelOnline();
         } else {
-            lobbyStatus.textContent = "Host Error: " + err.type;
+            lobbyStatus.textContent = "Error: " + err.type;
         }
     });
 }
-let joinHeartbeat = null;
 
-// Join-First Cycle: startOnline -> tryJoinHost -> handleNoHostFound -> tryBecomeHost -> startOnline (if failed)
+function startAsJoin() {
+    isOnline = true;
+    gameState = 'LOBBY';
+    isHost = false;
+    menuOverlay.classList.add('hidden');
+    lobbyOverlay.classList.remove('hidden');
+    lobbyStatus.textContent = "Searching for Lobby...";
+
+    if (peer) {
+        peer.removeAllListeners();
+        peer.destroy();
+    }
+
+    peer = new Peer(); // Random client ID
+
+    peer.on('open', (id) => {
+        myPeerId = id;
+        lobbyStatus.textContent = `Joining Lobby #${id.slice(-4)}...`;
+
+        const conn = peer.connect(GLOBAL_LOBBY_ID, { reliable: true });
+
+        let joinTimeout = setTimeout(() => {
+            if (!conn.open) {
+                alert("Lobby not found! Make sure the Host has started the game.");
+                cancelOnline();
+            }
+        }, 5000);
+
+        setupConnection(conn);
+
+        conn.on('open', () => {
+            clearTimeout(joinTimeout);
+        });
+    });
+
+    peer.on('error', (err) => {
+        console.error("Join Error:", err.type);
+        if (err.type === 'peer-unavailable') {
+            alert("Lobby not found! Make sure the Host has started the game.");
+            cancelOnline();
+        } else {
+            lobbyStatus.textContent = "Error: " + err.type;
+        }
+    });
+}
+
+// Global Online Handler (Legacy support or internal cleanup)
+function startOnline() {
+    startAsJoin(); // Default to join if someone calls the old function
+}
+let joinHeartbeat = null;
 
 function cancelOnline() {
     isOnline = false;

@@ -35,7 +35,8 @@
                     <h1>TANK BATTLEGROUNDS</h1>
                     <p>Select number of players:</p>
                     <div class="button-group">
-                        <button class="menu-btn" onclick="startOnline()">Online Play (4P)</button>
+                        <button class="menu-btn" onclick="startAsHost()">Host Online</button>
+                        <button class="menu-btn" onclick="startAsJoin()">Join Online</button>
                     </div>
                     <p>Local Play:</p>
                     <div class="button-group">
@@ -86,7 +87,7 @@
     <!-- For P3 and P4 on top/bottom if needed? The user mentioned Smart Board/Touch. 
          Usually 2 players are on sides. For 4 players we can add more overlay or corners. 
          Let's start with a robust side system. -->
-    <div id="version-tag">v1.4.8 - Matchmaking Sweep & Buffalo Bullets</div>
+    <div id="version-tag">v1.4.9 - Manual Matchmaking & 15s Bullets</div>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
 </body>
