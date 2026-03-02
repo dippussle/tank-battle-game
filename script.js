@@ -47,14 +47,11 @@ class Joystick {
         this.knob.className = 'joystick-knob';
         this.container.appendChild(this.knob);
 
-        this.active = false;
-        this.touchId = null;
-        this.origin = { x: 0, y: 0 };
-        this.input = { x: 0, y: 0 };
-        this.onChange = onChange;
+        this.isTouch = false;
 
         const handleStart = (e) => {
             if (e.touches) {
+                this.isTouch = true;
                 // Multi-touch: use the touch that just started on this container
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const t = e.changedTouches[i];
@@ -62,7 +59,8 @@ class Joystick {
                     this.start(t);
                     break;
                 }
-            } else {
+            } else if (!this.isTouch) {
+                // Ignore mouse if we've seen touch events
                 this.start(e);
             }
         };
@@ -78,7 +76,7 @@ class Joystick {
                         break;
                     }
                 }
-            } else {
+            } else if (!this.isTouch) {
                 this.move(e);
             }
         };
@@ -100,8 +98,15 @@ class Joystick {
             }
         };
 
-        this.container.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); }, { passive: false });
-        this.container.addEventListener('mousedown', handleStart);
+        this.container.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleStart(e);
+        }, { passive: false });
+        this.container.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            handleStart(e);
+        });
 
         window.addEventListener('touchmove', handleMove, { passive: false });
         window.addEventListener('mousemove', handleMove);
@@ -109,6 +114,9 @@ class Joystick {
         window.addEventListener('touchend', handleEnd);
         window.addEventListener('mouseup', handleEnd);
         window.addEventListener('touchcancel', handleEnd);
+
+        // Prevent context menu on long press (common on smart boards)
+        this.container.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     start(e) {
