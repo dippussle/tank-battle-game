@@ -1122,19 +1122,19 @@ function startOnline() {
 
     peer.on('error', (err) => {
         if (err.type === 'id-taken' || err.type === 'unavailable-id') {
-            // Host exists! Become a CLIENT instead
-            console.log("Lobby ID taken/unavailable, joining as client...");
-            startAsClient();
+            console.log("Lobby ID taken/unavailable, joining as client soon...");
+            setTimeout(startAsClient, 1000); // 1s cooldown to prevent server spam
         } else {
             console.error("Peer Error:", err);
             lobbyStatus.textContent = "Error: " + err.type;
-            // Auto-retry if it's a transient error
             if (err.type === 'peer-unavailable') {
-                setTimeout(startOnline, 2000);
+                setTimeout(startOnline, 3000);
             }
         }
     });
 }
+
+let joinHeartbeat = null;
 
 function startAsClient() {
     isHost = false;
@@ -1143,25 +1143,23 @@ function startAsClient() {
         peer.destroy();
     }
 
-    peer = new Peer(); // Random ID
+    peer = new Peer();
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = "Connecting to Lobby...";
-        // Small delay to let signaling server settle
+        lobbyStatus.textContent = "Searching for Lobby...";
         setTimeout(() => {
             if (peer && !peer.destroyed) {
                 const conn = peer.connect(GLOBAL_LOBBY_ID);
                 setupConnection(conn);
             }
-        }, 500);
+        }, 1000); // Wait for signaling server to register new ID
     });
 
     peer.on('error', (err) => {
         console.error("Client Peer Error:", err);
-        lobbyStatus.textContent = "Join Failed: " + err.type;
         if (err.type === 'peer-unavailable') {
-            lobbyStatus.textContent = "Lobby not found. Retrying...";
+            lobbyStatus.textContent = "Lobby not found. Retrying as Host...";
             setTimeout(startOnline, 2000);
         }
     });
@@ -1194,9 +1192,17 @@ function setupConnection(conn) {
         clearTimeout(connectionTimeout);
         connections.push(conn);
         if (!isHost) {
-            conn.send({ type: 'JOIN', peerId: myPeerId });
+            lobbyStatus.textContent = "Handshaking with Host...";
+            // Join Heartbeat: Keep sending JOIN until we get a LOBBY_UPDATE
+            if (joinHeartbeat) clearInterval(joinHeartbeat);
+            joinHeartbeat = setInterval(() => {
+                if (conn.open) {
+                    conn.send({ type: 'JOIN', peerId: myPeerId });
+                } else {
+                    clearInterval(joinHeartbeat);
+                }
+            }, 1500);
         } else {
-            // Push current lobby state to everyone including the newcomer
             broadcastLobby();
         }
     });
@@ -1247,6 +1253,10 @@ function handleNetworkData(data, conn) {
             }
             break;
         case 'LOBBY_UPDATE':
+            if (!isHost && joinHeartbeat) {
+                clearInterval(joinHeartbeat);
+                joinHeartbeat = null;
+            }
             updateLobbyUI(data.players);
             break;
         case 'START_ROUND':
