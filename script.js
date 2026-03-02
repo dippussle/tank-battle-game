@@ -1097,24 +1097,25 @@ function startOnline() {
     gameState = 'LOBBY';
     menuOverlay.classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
-    lobbyStatus.textContent = "Initializing connection...";
+    lobbyStatus.textContent = "Initializing Peer...";
 
-    // Try to become the HOST first by taking the global ID
-    peer = new Peer(GLOBAL_LOBBY_ID);
+    if (peer) {
+        peer.removeAllListeners();
+        peer.destroy();
+    }
+
+    peer = new Peer(); // Start with random ID
 
     peer.on('open', (id) => {
         myPeerId = id;
-        isHost = true;
-        lobbyStatus.textContent = `Lobby Created (ID: ${id.slice(-4)}). Waiting... (1/4)`;
-        onlinePlayers = [{ peerId: id }];
-        updateLobbyUI(onlinePlayers);
+        lobbyStatus.textContent = "Searching for active lobby...";
+        tryJoinHost();
     });
 
     peer.on('connection', (conn) => {
-        if (onlinePlayers.length < 4) {
+        if (isHost && onlinePlayers.length < 4) {
             setupConnection(conn);
-            // Host: Notify new player immediately on open (in setupConnection)
-        } else {
+        } else if (isHost) {
             conn.on('open', () => {
                 conn.send({ type: 'LOBBY_FULL' });
                 setTimeout(() => conn.close(), 1000);
@@ -1123,63 +1124,83 @@ function startOnline() {
     });
 
     peer.on('error', (err) => {
-        if (err.type === 'id-taken' || err.type === 'unavailable-id') {
-            console.log("Lobby ID taken/unavailable, joining as client soon...");
-            setTimeout(startAsClient, 1000); // 1s cooldown to prevent server spam
+        console.error("Peer Global Error:", err.type);
+        if (err.type === 'peer-unavailable') {
+            // This is expected if we try to join a non-existent host
+            handleNoHostFound();
         } else {
-            console.error("Peer Error:", err);
             lobbyStatus.textContent = "Error: " + err.type;
-            if (err.type === 'peer-unavailable') {
-                setTimeout(startOnline, 3000);
-            }
         }
     });
 }
 
-let joinHeartbeat = null;
-
-function startAsClient() {
+function tryJoinHost() {
     isHost = false;
+    const conn = peer.connect(GLOBAL_LOBBY_ID, { reliable: true });
+
+    // Explicit timeout for joining
+    let joinTimeout = setTimeout(() => {
+        if (!conn.open && !isHost) {
+            console.log("No host found in time, preparing to host...");
+            conn.close();
+            handleNoHostFound();
+        }
+    }, 4000);
+
+    setupConnection(conn);
+}
+
+function handleNoHostFound() {
+    if (isHost) return;
+    lobbyStatus.textContent = "Lobby not found. Waiting for turn to host...";
+
+    // Randomized backoff (0.5s to 3s) to prevent race conditions
+    const backoff = 500 + Math.random() * 2500;
+    setTimeout(() => {
+        if (gameState === 'LOBBY' && !isHost) {
+            tryBecomeHost();
+        }
+    }, backoff);
+}
+
+function tryBecomeHost() {
+    console.log("Attempting to become Host...");
     if (peer) {
         peer.removeAllListeners();
         peer.destroy();
     }
 
-    peer = new Peer();
+    peer = new Peer(GLOBAL_LOBBY_ID);
 
     peer.on('open', (id) => {
+        isHost = true;
         myPeerId = id;
-        lobbyStatus.textContent = `Client ID: ${id.slice(-4)} - Searching Lobby...`;
+        lobbyStatus.textContent = `Lobby Mode: HOST (${id.slice(-4)})`;
+        onlinePlayers = [{ peerId: id }];
+        updateLobbyUI(onlinePlayers);
+    });
 
-        let clientConnectTimeout = setTimeout(() => {
-            if (gameState === 'LOBBY' && !isHost) {
-                console.log("Client connection attempt timed out, retrying as host...");
-                startOnline();
-            }
-        }, 8000);
-
-        setTimeout(() => {
-            if (peer && !peer.destroyed) {
-                const conn = peer.connect(GLOBAL_LOBBY_ID, {
-                    reliable: true,
-                    timeout: 5000
-                });
-                setupConnection(conn);
-                clearTimeout(clientConnectTimeout);
-            }
-        }, 1200);
+    peer.on('connection', (conn) => {
+        if (onlinePlayers.length < 4) {
+            setupConnection(conn);
+        }
     });
 
     peer.on('error', (err) => {
-        console.error("Client Peer Error:", err);
-        if (err.type === 'peer-unavailable' || err.type === 'network') {
-            lobbyStatus.textContent = "Lobby offline or Busy. Retrying...";
-            setTimeout(startOnline, 3000);
+        if (err.type === 'id-taken') {
+            console.log("Someone else became host first! Joining them...");
+            startOnline(); // Restart the cycle
+        } else {
+            lobbyStatus.textContent = "Host Error: " + err.type;
         }
-    });
+    }
+        });
+    }
 }
 
-// Removed startAsHost as it's merged into startOnline Host-First logic
+let joinHeartbeat = null;
+
+// Join-First Cycle: startOnline -> tryJoinHost -> handleNoHostFound -> tryBecomeHost -> startOnline (if failed)
 
 function cancelOnline() {
     isOnline = false;
