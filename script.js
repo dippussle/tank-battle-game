@@ -1098,6 +1098,17 @@ let targetPlayerCount = 4;
 let onlinePlayers = []; // { peerId, slotIndex, tank }
 let matchmakingInterval = null;
 
+// Public STUN servers for NAT Traversal
+const PEER_CONFIG = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+    ]
+};
+
 const lobbyOverlay = document.getElementById('lobby-overlay');
 const lobbyStatus = document.getElementById('lobby-status');
 
@@ -1135,7 +1146,7 @@ function startAsHost(count = 4) {
     }
 
     lobbyStatus.textContent = "Connecting to PeerServer...";
-    peer = new Peer(fullRoomId);
+    peer = new Peer(fullRoomId, { config: PEER_CONFIG });
 
     peer.on('open', (id) => {
         myPeerId = id;
@@ -1204,7 +1215,7 @@ function confirmJoin() {
         peer.destroy();
     }
 
-    peer = new Peer();
+    peer = new Peer(undefined, { config: PEER_CONFIG });
 
     peer.on('open', (id) => {
         myPeerId = id;
