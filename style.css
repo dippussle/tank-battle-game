@@ -391,33 +391,33 @@ button.menu-btn:hover {
         font-size: 0.9rem;
     }
 
-    /* P1: Bottom Left - Pushed towards maze */
+    /* P1: Bottom Left - Pushed significantly towards center */
     .p1-side {
-        left: 40px;
+        left: 80px;
         bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
         border-left: 4px solid var(--p1-color);
     }
 
-    /* P2: Bottom Right - Pushed towards maze */
+    /* P2: Bottom Right - Pushed significantly towards center */
     .p2-side {
-        right: 40px;
+        right: 80px;
         bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
         border-right: 4px solid var(--p2-color);
     }
 
-    /* P3: Top Left - Pushed towards maze */
+    /* P3: Top Left - Pushed significantly towards center */
     .p3-side {
-        left: 40px;
+        left: 80px;
         top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
         border-left: 4px solid var(--p3-color);
     }
 
-    /* P4: Top Right - Pushed towards maze */
+    /* P4: Top Right - Pushed significantly towards center */
     .p4-side {
-        right: 40px;
+        right: 80px;
         top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
         border-right: 4px solid var(--p4-color);
