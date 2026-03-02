@@ -13,7 +13,7 @@ const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
 const BULLET_SPEED = 3.0;
 const MAX_BOUNCES = 1000;
-const BULLET_LIFESPAN = 5000;
+const BULLET_LIFESPAN = 8000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
 const TIME_WARP_RADIUS = TANK_SIZE * 4;
@@ -173,7 +173,9 @@ class Maze {
     }
 
     generate() {
-        // 1. Standard DFS Spanning Tree (Guarantees every cell is reachable)
+        const rng = isOnline ? seededRandom : Math.random;
+
+        // 1. Standard DFS Spanning Tree
         const stack = [];
         let current = { r: 0, c: 0 };
         this.cells[0][0].visited = true;
@@ -190,7 +192,7 @@ class Maze {
         while (true) {
             const neighbors = getUnvisitedNeighbors(current.r, current.c);
             if (neighbors.length > 0) {
-                const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                const next = neighbors[Math.floor(rng() * neighbors.length)];
                 if (next.dir === 'top') {
                     this.cells[current.r][current.c].walls.top = false;
                     this.cells[next.r][next.c].walls.bottom = false;
@@ -214,24 +216,21 @@ class Maze {
             }
         }
 
-        // 2. High-Probability Braid: Remove many internal walls to create loops and open spaces
+        // 2. High-Probability Braid
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
-                // Randomly remove right wall (if not on edge)
-                if (c < this.cols - 1 && Math.random() < 0.12) {
+                if (c < this.cols - 1 && rng() < 0.12) {
                     this.cells[r][c].walls.right = false;
                     this.cells[r][c + 1].walls.left = false;
                 }
-                // Randomly remove bottom wall (if not on edge)
-                if (r < this.rows - 1 && Math.random() < 0.12) {
+                if (r < this.rows - 1 && rng() < 0.12) {
                     this.cells[r][c].walls.bottom = false;
                     this.cells[r + 1][c].walls.top = false;
                 }
             }
         }
 
-        // 3. Dead-end Elimination: Second pass to ensure NO cell has 3+ walls
-        // This ensures every room has at least 2 exits.
+        // 3. Dead-end Elimination
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 let cell = this.cells[r][c];
@@ -241,13 +240,11 @@ class Maze {
                 if (cell.walls.left && c > 0) wallList.push('left');
                 if (cell.walls.right && c < this.cols - 1) wallList.push('right');
 
-                // If it's a dead end (3 internal/border walls, but we filter only removable ones)
-                // Actually let's just count total walls.
                 let totalWalls = (cell.walls.top ? 1 : 0) + (cell.walls.bottom ? 1 : 0) +
                     (cell.walls.left ? 1 : 0) + (cell.walls.right ? 1 : 0);
 
                 if (totalWalls >= 3 && wallList.length > 0) {
-                    const wallToBurn = wallList[Math.floor(Math.random() * wallList.length)];
+                    const wallToBurn = wallList[Math.floor(rng() * wallList.length)];
                     if (wallToBurn === 'top') {
                         this.cells[r][c].walls.top = false;
                         this.cells[r - 1][c].walls.bottom = false;
@@ -775,6 +772,7 @@ class Tank {
         this.bullets.forEach(b => b.update(maze, tanks));
 
         if (!this.alive) return;
+        if (this.isRemote) return; // Only process inputs for local tank
 
         // Wireless Missile Takeover (Limit to 10s)
         if (this.activeWirelessMissile && this.activeWirelessMissile.active) {
@@ -855,44 +853,51 @@ class Tank {
         // Shooting
         const isShooting = keys[this.controls.fire] || this.firePressed;
         if (isShooting && Date.now() - this.lastShot > this.shootDelay) {
-            if (this.bullets.filter(b => b.active).length < 5) {
-                const bulletX = this.x + Math.cos(this.turretAngle) * (TANK_SIZE * 1.2);
-                const bulletY = this.y + Math.sin(this.turretAngle) * (TANK_SIZE * 1.2);
-
-                let bulletType = this.powerUp || 'normal';
-
-                if (bulletType === 'timeWarp') {
-                    this.timeWarpActiveUntil = Date.now() + 8000;
-                    this.powerUp = null;
-                } else if (bulletType === 'shield') {
-                    this.hasShield = true;
-                    this.shieldActiveUntil = Date.now() + 10000;
-                    this.powerUp = null;
-                } else if (bulletType === 'portalGun') {
-                    // Handle portal gun: alternate between blue and orange
-                    const type = (this.portalsCreated % 2 === 0) ? 'portal_blue' : 'portal_orange';
-                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, type);
-                    this.bullets.push(newBullet);
-                    this.portalsCreated++;
-                    if (this.portalsCreated % 2 === 0) this.powerUp = null; // Use after 2 shots
-                } else {
-                    // Normal, Homing, Ghost, Wireless
-                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
-                    this.bullets.push(newBullet);
-
-                    if (bulletType === 'wireless') {
-                        this.activeWirelessMissile = newBullet;
-                    }
-                    if (this.powerUp) this.powerUp = null; // Use powerup once
-                }
-
-                this.lastShot = Date.now();
-            }
+            this.shoot();
         }
 
         // Return control if wireless missile is dead
         if (this.activeWirelessMissile && !this.activeWirelessMissile.active) {
             this.activeWirelessMissile = null;
+        }
+    }
+
+    shoot() {
+        if (this.bullets.filter(b => b.active).length < 5) {
+            const bulletX = this.x + Math.cos(this.turretAngle) * (TANK_SIZE * 1.2);
+            const bulletY = this.y + Math.sin(this.turretAngle) * (TANK_SIZE * 1.2);
+
+            let bulletType = this.powerUp || 'normal';
+
+            if (bulletType === 'timeWarp') {
+                this.timeWarpActiveUntil = Date.now() + 8000;
+                this.powerUp = null;
+            } else if (bulletType === 'shield') {
+                this.hasShield = true;
+                this.shieldActiveUntil = Date.now() + 10000;
+                this.powerUp = null;
+            } else if (bulletType === 'portalGun') {
+                const type = (this.portalsCreated % 2 === 0) ? 'portal_blue' : 'portal_orange';
+                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, type);
+                this.bullets.push(newBullet);
+                this.portalsCreated++;
+                if (this.portalsCreated % 2 === 0) this.powerUp = null;
+            } else {
+                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
+                this.bullets.push(newBullet);
+                if (bulletType === 'wireless') this.activeWirelessMissile = newBullet;
+                if (this.powerUp) this.powerUp = null;
+            }
+
+            this.lastShot = Date.now();
+
+            if (isOnline && !this.isRemote) {
+                broadcast({
+                    type: 'SHOOT',
+                    peerId: myPeerId,
+                    bulletType: bulletType
+                });
+            }
         }
     }
 
@@ -1072,6 +1077,234 @@ const PLAYER_CONFIGS = [
     { id: 'P4', name: 'Player 4', color: COLORS.P4, controls: { up: 'Numpad8', down: 'Numpad5', left: 'Numpad4', right: 'Numpad6', fire: 'Numpad0' } }
 ];
 
+// Networking State
+let isOnline = false;
+let peer = null;
+let connections = [];
+let myPeerId = null;
+let isHost = false;
+let onlinePlayers = []; // { peerId, slotIndex, tank }
+let matchmakingInterval = null;
+
+const lobbyOverlay = document.getElementById('lobby-overlay');
+const lobbyStatus = document.getElementById('lobby-status');
+
+function startOnline() {
+    isOnline = true;
+    gameState = 'LOBBY';
+    menuOverlay.classList.add('hidden');
+    lobbyOverlay.classList.remove('hidden');
+
+    // Initialize Peer
+    peer = new Peer();
+
+    peer.on('open', (id) => {
+        myPeerId = id;
+        lobbyStatus.textContent = "Connecting to matchmaking...";
+        joinMatchmaking();
+    });
+
+    peer.on('connection', (conn) => {
+        setupConnection(conn);
+    });
+
+    peer.on('error', (err) => {
+        console.error("Peer Error:", err);
+        lobbyStatus.textContent = "Connection Error: " + err.type;
+    });
+}
+
+function joinMatchmaking() {
+    // Basic Matchmaking: Connect to a global room or become host
+    const lobbyId = "TANK_BATTLE_LOBBY_GLOBAL_4P_V1";
+
+    const conn = peer.connect(lobbyId);
+    setupConnection(conn);
+
+    // If no one is using the ID, we can't "connect" to it as a host.
+    // PeerJS usually requires us to 'listen' on an ID.
+    // For this prototype, if connection fails, we restart as the Global Lobby host.
+    conn.on('error', () => {
+        if (!isHost) {
+            startAsHost(lobbyId);
+        }
+    });
+}
+
+function startAsHost(id) {
+    if (peer) peer.destroy();
+    peer = new Peer(id);
+    isHost = true;
+
+    peer.on('open', () => {
+        lobbyStatus.textContent = "Hosting Global Lobby... (1/4)";
+        onlinePlayers = [{ peerId: id, slotIndex: 0 }];
+    });
+
+    peer.on('connection', (conn) => {
+        if (onlinePlayers.length < 4) {
+            setupConnection(conn);
+        } else {
+            conn.on('open', () => conn.send({ type: 'LOBBY_FULL' }));
+        }
+    });
+}
+
+function cancelOnline() {
+    isOnline = false;
+    isHost = false;
+    if (peer) peer.destroy();
+    peer = null;
+    connections = [];
+    onlinePlayers = [];
+    lobbyOverlay.classList.add('hidden');
+    menuOverlay.classList.remove('hidden');
+}
+
+function setupConnection(conn) {
+    conn.on('open', () => {
+        connections.push(conn);
+        if (!isHost) {
+            conn.send({ type: 'JOIN', peerId: myPeerId });
+        }
+    });
+
+    conn.on('data', (data) => {
+        handleNetworkData(data, conn);
+    });
+}
+
+function handleNetworkData(data, conn) {
+    switch (data.type) {
+        case 'JOIN':
+            if (isHost) {
+                onlinePlayers.push({ peerId: data.peerId, conn: conn });
+                broadcastLobby();
+                if (onlinePlayers.length === 4) {
+                    initOnlineRound();
+                }
+            }
+            break;
+        case 'LOBBY_UPDATE':
+            updateLobbyUI(data.players);
+            break;
+        case 'START_ROUND':
+            isOnline = true;
+            gameState = 'PLAYING';
+            lobbyOverlay.classList.add('hidden');
+            handleRemoteRoundStart(data);
+            break;
+        case 'TANK_UPDATE':
+            handleRemoteTankSync(data);
+            break;
+        case 'SHOOT':
+            handleRemoteShoot(data);
+            break;
+    }
+}
+
+function broadcastLobby() {
+    const playersInfo = onlinePlayers.map(p => ({ peerId: p.peerId }));
+    broadcast({ type: 'LOBBY_UPDATE', players: playersInfo });
+    updateLobbyUI(playersInfo);
+}
+
+function updateLobbyUI(players) {
+    document.querySelectorAll('.player-slot').forEach(el => el.classList.remove('active', 'you'));
+    players.forEach((p, i) => {
+        const el = document.getElementById(`slot-${i + 1}`);
+        if (el) {
+            el.textContent = `P${i + 1}: Joined`;
+            el.classList.add('active');
+            if (p.peerId === myPeerId) el.classList.add('you');
+        }
+    });
+    lobbyStatus.textContent = `Waiting for players... (${players.length}/4)`;
+}
+
+function broadcast(data) {
+    connections.forEach(conn => {
+        if (conn.open) conn.send(data);
+    });
+}
+
+function initOnlineRound() {
+    const seed = Date.now().toString();
+    broadcast({ type: 'START_ROUND', seed: seed, players: onlinePlayers.map(p => p.peerId) });
+    handleRemoteRoundStart({ seed: seed, players: onlinePlayers.map(p => p.peerId) });
+}
+
+function handleRemoteRoundStart(data) {
+    console.log("Starting network round...");
+    seedRandom(data.seed);
+    maze = new Maze(ROWS, COLS);
+    tanks = [];
+    powerUps = [];
+    portals = { blue: null, orange: null };
+    roundEnded = false;
+    winnerOverlay.classList.add('hidden');
+
+    playerCount = data.players.length;
+    const spawnPoints = [
+        { x: CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: 0 },
+        { x: canvas.width - CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: Math.PI },
+        { x: CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: -Math.PI / 2 },
+        { x: canvas.width - CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: Math.PI / 2 }
+    ];
+
+    data.players.forEach((pId, i) => {
+        const config = PLAYER_CONFIGS[i];
+        const tank = new Tank(config.id, config.name, config.color, spawnPoints[i], config.controls);
+        tank.peerId = pId;
+        tank.isRemote = (pId !== myPeerId);
+        tanks.push(tank);
+
+        if (!tank.isRemote) {
+            // Local Player Setup
+            const controlId = `p${i + 1}-controls`;
+            document.querySelectorAll('.touch-controls').forEach(el => el.classList.add('hidden'));
+            const controlEl = document.getElementById(controlId);
+            if (controlEl) {
+                controlEl.classList.remove('hidden');
+                let joy = document.getElementById(`p${i + 1}-joystick`)._joystick;
+                if (!joy) joy = new Joystick(`p${i + 1}-joystick`, (input) => tank.joystickInput = input);
+                else joy.onChange = (input) => tank.joystickInput = input;
+
+                const fireBtn = document.getElementById(`p${i + 1}-fire`);
+                if (fireBtn) {
+                    const newFireBtn = fireBtn.cloneNode(true);
+                    fireBtn.parentNode.replaceChild(newFireBtn, fireBtn);
+                    newFireBtn.addEventListener('mousedown', () => tank.firePressed = true);
+                    newFireBtn.addEventListener('mouseup', () => tank.firePressed = false);
+                    newFireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
+                    newFireBtn.addEventListener('touchend', () => tank.firePressed = false);
+                }
+            }
+        }
+    });
+
+    gameState = 'PLAYING';
+    lobbyOverlay.classList.add('hidden');
+}
+
+function handleRemoteTankSync(data) {
+    const tank = tanks.find(t => t.peerId === data.peerId);
+    if (tank && tank.isRemote) {
+        tank.x = data.x;
+        tank.y = data.y;
+        tank.angle = data.angle;
+        tank.turretAngle = data.turretAngle;
+    }
+}
+
+function handleRemoteShoot(data) {
+    const tank = tanks.find(t => t.peerId === data.peerId);
+    if (tank && tank.isRemote) {
+        tank.powerUp = data.bulletType; // Temporarily set powerup for the shot
+        tank.shoot();
+    }
+}
+
 function startGame(count) {
     playerCount = count;
     gameState = 'PLAYING';
@@ -1153,7 +1386,20 @@ function update() {
 
     // Portals now persist until round end (Handled in initRound)
 
-    tanks.forEach(tank => tank.update(maze));
+    tanks.forEach(tank => {
+        tank.update(maze);
+        // If local tank, broadcast state
+        if (isOnline && !tank.isRemote) {
+            broadcast({
+                type: 'TANK_UPDATE',
+                peerId: myPeerId,
+                x: tank.x,
+                y: tank.y,
+                angle: tank.angle,
+                turretAngle: tank.turretAngle
+            });
+        }
+    });
 
     // Collision check: Tanks vs PowerUps
     tanks.forEach(tank => {
@@ -1249,3 +1495,18 @@ function draw() {
 
 // Start animation loop
 draw();
+// Simple Seeded Random (Lcg)
+let nextRandom = 1;
+function seedRandom(seed) {
+    if (typeof seed === 'string') {
+        let h = 0;
+        for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+        nextRandom = h;
+    } else {
+        nextRandom = seed;
+    }
+}
+function seededRandom() {
+    nextRandom = (nextRandom * 16807) % 2147483647;
+    return (nextRandom - 1) / 2147483646;
+}
