@@ -90,24 +90,32 @@ canvas {
 .p1-side {
     grid-column: 1;
     grid-row: 1;
+    justify-self: end;
+    /* Move closer to maze */
     border-left: 5px solid var(--p1-color);
 }
 
 .p3-side {
     grid-column: 1;
     grid-row: 2;
+    justify-self: end;
+    /* Move closer to maze */
     border-left: 5px solid var(--p3-color);
 }
 
 .p2-side {
     grid-column: 3;
     grid-row: 1;
+    justify-self: start;
+    /* Move closer to maze */
     border-right: 5px solid var(--p2-color);
 }
 
 .p4-side {
     grid-column: 3;
     grid-row: 2;
+    justify-self: start;
+    /* Move closer to maze */
     border-right: 5px solid var(--p4-color);
 }
 
@@ -383,33 +391,33 @@ button.menu-btn:hover {
         font-size: 0.9rem;
     }
 
-    /* P1: Bottom Left */
+    /* P1: Bottom Left - Pushed towards maze */
     .p1-side {
-        left: 10px;
+        left: 40px;
         bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
         border-left: 4px solid var(--p1-color);
     }
 
-    /* P2: Bottom Right */
+    /* P2: Bottom Right - Pushed towards maze */
     .p2-side {
-        right: 10px;
+        right: 40px;
         bottom: calc(10px + env(safe-area-inset-bottom));
         flex-direction: column-reverse;
         border-right: 4px solid var(--p2-color);
     }
 
-    /* P3: Top Left */
+    /* P3: Top Left - Pushed towards maze */
     .p3-side {
-        left: 10px;
+        left: 40px;
         top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
         border-left: 4px solid var(--p3-color);
     }
 
-    /* P4: Top Right */
+    /* P4: Top Right - Pushed towards maze */
     .p4-side {
-        right: 10px;
+        right: 40px;
         top: calc(10px + env(safe-area-inset-top));
         flex-direction: column;
         border-right: 4px solid var(--p4-color);
