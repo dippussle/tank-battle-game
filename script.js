@@ -1094,6 +1094,7 @@ let peer = null;
 let connections = [];
 let myPeerId = null;
 let isHost = false;
+let targetPlayerCount = 4;
 let onlinePlayers = []; // { peerId, slotIndex, tank }
 let matchmakingInterval = null;
 
@@ -1112,7 +1113,9 @@ function generateRoomCode() {
 let currentLobbyIndex = 1;
 const MAX_LOBBIES = 3;
 
-function startAsHost() {
+function startAsHost(count = 4) {
+    targetPlayerCount = count;
+    console.log(`Starting as Host for ${targetPlayerCount} players...`);
     isOnline = true;
     gameState = 'LOBBY';
     isHost = true;
@@ -1337,12 +1340,12 @@ function handleNetworkData(data, conn) {
 
                 // Send ACK to the joining client specifically
                 const playersInfo = onlinePlayers.map(p => ({ peerId: p.peerId }));
-                conn.send({ type: 'JOIN_ACK', players: playersInfo });
+                conn.send({ type: 'JOIN_ACK', players: playersInfo, targetCount: targetPlayerCount });
 
                 // Tell everyone else
                 broadcastLobby();
 
-                if (onlinePlayers.length === 4) {
+                if (onlinePlayers.length >= targetPlayerCount) {
                     initOnlineRound();
                 }
             }
@@ -1353,6 +1356,7 @@ function handleNetworkData(data, conn) {
                     clearInterval(joinHeartbeat);
                     joinHeartbeat = null;
                 }
+                if (data.targetCount) targetPlayerCount = data.targetCount;
                 updateLobbyUI(data.players);
             }
             break;
@@ -1368,6 +1372,7 @@ function handleNetworkData(data, conn) {
                 clearInterval(joinHeartbeat);
                 joinHeartbeat = null;
             }
+            if (data.targetCount) targetPlayerCount = data.targetCount;
             updateLobbyUI(data.players);
             break;
         case 'START_ROUND':
@@ -1384,7 +1389,7 @@ function handleNetworkData(data, conn) {
 
 function broadcastLobby() {
     const playersInfo = onlinePlayers.map(p => ({ peerId: p.peerId }));
-    broadcast({ type: 'LOBBY_UPDATE', players: playersInfo });
+    broadcast({ type: 'LOBBY_UPDATE', players: playersInfo, targetCount: targetPlayerCount });
     updateLobbyUI(playersInfo);
 }
 
@@ -1398,7 +1403,12 @@ function updateLobbyUI(players) {
             if (p.peerId === myPeerId) el.classList.add('you');
         }
     });
-    lobbyStatus.textContent = `Waiting for players... (${players.length}/4)`;
+
+    const targetHint = document.getElementById('lobby-target-hint');
+    if (targetHint) {
+        targetHint.textContent = `Game starts at ${targetPlayerCount} players.`;
+    }
+    lobbyStatus.textContent = `Waiting for players... (${players.length}/${targetPlayerCount})`;
 }
 
 function broadcast(data) {

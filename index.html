@@ -35,8 +35,9 @@
                     <h1>TANK BATTLEGROUNDS</h1>
                     <p>Select number of players:</p>
                     <div class="button-group">
-                        <button class="menu-btn" onclick="startAsHost()">Host Online</button>
-                        <button class="menu-btn" onclick="startAsJoin()">Join Online</button>
+                        <button class="menu-btn" onclick="startAsHost(2)">Host (2 Players)</button>
+                        <button class="menu-btn" onclick="startAsHost(4)">Host (4 Players)</button>
+                        <button class="menu-btn secondary" onclick="startAsJoin()">Join Online</button>
                     </div>
                     <p>Local Play:</p>
                     <div class="button-group">
@@ -67,7 +68,8 @@
                         <div class="player-slot" id="slot-3">P3: Waiting...</div>
                         <div class="player-slot" id="slot-4">P4: Waiting...</div>
                     </div>
-                    <p style="margin-top: 20px; font-size: 0.8rem; color: #888;">Game starts automatically at 4 players
+                    <p id="lobby-target-hint" style="margin-top: 20px; font-size: 0.8rem; color: #888;">
+                        Waiting for players...
                     </p>
                     <div class="button-group" style="margin-top: 20px;">
                         <button class="menu-btn secondary" id="refresh-lobby-btn"
@@ -104,7 +106,7 @@
     <!-- For P3 and P4 on top/bottom if needed? The user mentioned Smart Board/Touch. 
          Usually 2 players are on sides. For 4 players we can add more overlay or corners. 
          Let's start with a robust side system. -->
-    <div id="version-tag">v1.5.6 - Round Start Hardening</div>
+    <div id="version-tag">v1.5.7 - Party Size Selection</div>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
 </body>
