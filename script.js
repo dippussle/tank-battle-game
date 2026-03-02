@@ -1654,7 +1654,16 @@ function showWinner(winnerId) {
     winnerOverlay.classList.remove('hidden');
 
     setTimeout(() => {
-        if (gameState === 'PLAYING') initRound();
+        if (gameState === 'PLAYING') {
+            if (isOnline) {
+                if (isHost) {
+                    initOnlineRound(); // Host generates new maze and broadcasts
+                }
+                // Clients wait for 'START_ROUND' from host
+            } else {
+                initRound(); // Local play
+            }
+        }
     }, 3000);
 }
 
