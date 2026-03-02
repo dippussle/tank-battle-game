@@ -196,7 +196,9 @@ class Maze {
         while (true) {
             const neighbors = getUnvisitedNeighbors(current.r, current.c);
             if (neighbors.length > 0) {
-                const next = neighbors[Math.floor(rng() * neighbors.length)];
+                const index = Math.floor(rng() * neighbors.length);
+                const next = neighbors[Math.min(index, neighbors.length - 1)];
+                if (!next) continue; // Extra safety
                 if (next.dir === 'top') {
                     this.cells[current.r][current.c].walls.top = false;
                     this.cells[next.r][next.c].walls.bottom = false;
@@ -1693,5 +1695,6 @@ function seedRandom(seed) {
 }
 function seededRandom() {
     nextRandom = (nextRandom * 16807) % 2147483647;
-    return (nextRandom - 1) / 2147483646;
+    // Ensure the result is in [0, 1) to avoid index out of bounds
+    return (nextRandom - 1) / 2147483647;
 }
