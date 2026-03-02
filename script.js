@@ -11,7 +11,7 @@ const COLS = 9;
 const WALL_THICKNESS = 4;
 const TANK_SIZE = 20; // Proportional to cell size
 const BULLET_RADIUS = 3;
-const BULLET_SPEED = 3.5;
+const BULLET_SPEED = 3.0;
 const MAX_BOUNCES = 1000;
 const BULLET_LIFESPAN = 5000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
@@ -408,7 +408,7 @@ class Bullet {
         this.birth = Date.now();
         this.active = true;
         this.homingStart = Date.now() + 2500; // Reduced to 2.5s
-        this.homingEnd = Date.now() + 15000;
+        this.homingEnd = Date.now() + 12500;
         this.path = [];
         this.lastPathUpdate = 0;
         this.thrust = 0.1; // For wireless control
@@ -418,7 +418,7 @@ class Bullet {
         if (!this.active) return;
 
         const now = Date.now();
-        const life = this.type === 'homing' ? 15000 : (this.type === 'wireless' ? 20000 : BULLET_LIFESPAN);
+        const life = this.type === 'homing' ? 12500 : (this.type === 'wireless' ? 20000 : BULLET_LIFESPAN);
         if (now - this.birth > life) {
             this.active = false;
             return;
@@ -459,8 +459,8 @@ class Bullet {
                 while (diff > Math.PI) diff -= Math.PI * 2;
 
                 this.angle += diff * 0.15; // Sharper steering
-                this.vx = Math.cos(this.angle) * BULLET_SPEED;
-                this.vy = Math.sin(this.angle) * BULLET_SPEED;
+                this.vx = Math.cos(this.angle) * BULLET_SPEED * 0.9;
+                this.vy = Math.sin(this.angle) * BULLET_SPEED * 0.9;
             }
         }
 
