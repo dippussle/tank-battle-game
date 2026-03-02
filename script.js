@@ -1117,33 +1117,49 @@ function startOnline() {
     });
 
     peer.on('error', (err) => {
-        if (err.type === 'id-taken') {
+        if (err.type === 'id-taken' || err.type === 'unavailable-id') {
             // Host exists! Become a CLIENT instead
-            console.log("Host already exists, joining as client...");
+            console.log("Lobby ID taken/unavailable, joining as client...");
             startAsClient();
         } else {
             console.error("Peer Error:", err);
-            lobbyStatus.textContent = "Connection Error: " + err.type;
+            lobbyStatus.textContent = "Error: " + err.type;
+            // Auto-retry if it's a transient error
+            if (err.type === 'peer-unavailable') {
+                setTimeout(startOnline, 2000);
+            }
         }
     });
 }
 
 function startAsClient() {
     isHost = false;
-    if (peer) peer.destroy();
+    if (peer) {
+        peer.removeAllListeners();
+        peer.destroy();
+    }
 
     peer = new Peer(); // Random ID
 
     peer.on('open', (id) => {
         myPeerId = id;
         lobbyStatus.textContent = "Connecting to Lobby...";
-        const conn = peer.connect(GLOBAL_LOBBY_ID);
-        setupConnection(conn);
+        // Small delay to let signaling server settle
+        setTimeout(() => {
+            if (peer && !peer.destroyed) {
+                const conn = peer.connect(GLOBAL_LOBBY_ID);
+                setupConnection(conn);
+            }
+        }, 500);
     });
 
     peer.on('error', (err) => {
         console.error("Client Peer Error:", err);
-        lobbyStatus.textContent = "Failed to join: " + err.type;
+        lobbyStatus.textContent = "Join Failed: " + err.type;
+        if (err.type === 'peer-unavailable') {
+            lobbyStatus.textContent = "Lobby not found. Retrying...";
+            setTimeout(startOnline, 2000);
+        }
     });
 }
 
