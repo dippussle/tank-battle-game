@@ -731,6 +731,8 @@ class PowerUp {
             ctx.fillText('W', 0, 0);
         } else if (this.type === 'timeWarp') {
             ctx.fillText('⏳', 0, 0);
+        } else if (this.type === 'shield') {
+            ctx.fillText('🛡️', 0, 0);
         } else if (this.type === 'portalGun') {
             ctx.fillText('◎', 0, 0);
         } else {
@@ -760,6 +762,8 @@ class Tank {
         this.powerUp = null; // 'homing', 'ghost', 'wireless', 'timeWarp', 'portalGun'
         this.activeWirelessMissile = null;
         this.timeWarpActiveUntil = 0;
+        this.shieldActiveUntil = 0;
+        this.hasShield = false;
         this.portalsCreated = 0;
         this.turretAngle = startPos.angle;
         this.joystickInput = { x: 0, y: 0 };
@@ -860,169 +864,170 @@ class Tank {
                     bulletType = this.powerUp;
                 }
 
-                if (bulletType === 'timeWarp') {
-                    this.timeWarpActiveUntil = Date.now() + 8000;
-                    this.powerUp = null;
-                } else if (bulletType === 'portalGun') {
-                    // Handle portal gun: alternate between blue and orange
-                    const type = (this.portalsCreated % 2 === 0) ? 'portal_blue' : 'portal_orange';
-                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, type);
-                    this.bullets.push(newBullet);
-                    this.portalsCreated++;
-                    if (this.portalsCreated % 2 === 0) this.powerUp = null; // Use after 2 shots
-                } else {
-                    const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
-                    this.bullets.push(newBullet);
+            } else if (bulletType === 'shield') {
+                this.hasShield = true;
+                this.shieldActiveUntil = Date.now() + 10000;
+                this.powerUp = null;
+            } else {
+                // Handle portal gun: alternate between blue and orange
+                const type = (this.portalsCreated % 2 === 0) ? 'portal_blue' : 'portal_orange';
+                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, type);
+                this.bullets.push(newBullet);
+                this.portalsCreated++;
+                if (this.portalsCreated % 2 === 0) this.powerUp = null; // Use after 2 shots
+            } else {
+                const newBullet = new Bullet(bulletX, bulletY, this.turretAngle, 'black', this.id, bulletType);
+                this.bullets.push(newBullet);
 
-                    if (bulletType === 'wireless') {
-                        this.activeWirelessMissile = newBullet;
-                    }
-                    if (this.powerUp) this.powerUp = null; // Use powerup once
+                if (bulletType === 'wireless') {
+                    this.activeWirelessMissile = newBullet;
                 }
-
-                this.lastShot = Date.now();
+                if (this.powerUp) this.powerUp = null; // Use powerup once
             }
-        }
 
-        // Return control if wireless missile is dead
-        if (this.activeWirelessMissile && !this.activeWirelessMissile.active) {
-            this.activeWirelessMissile = null;
+            this.lastShot = Date.now();
         }
     }
 
-    draw() {
-        if (!this.alive) return;
+    // Return control if wireless missile is dead
+    if(this.activeWirelessMissile && !this.activeWirelessMissile.active) {
+    this.activeWirelessMissile = null;
+}
+    }
 
-        ctx.save();
-        ctx.translate(this.x, this.y);
+draw() {
+    if (!this.alive) return;
 
-        // Body (Detailed Hull)
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    // Body (Detailed Hull)
+    ctx.save();
+    ctx.rotate(this.angle);
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+
+    // Main hull
+    ctx.beginPath();
+    ctx.roundRect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Tracks
+    ctx.fillStyle = '#444';
+    ctx.fillRect(-TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
+    ctx.fillRect(TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
+    ctx.restore();
+
+    // Turret (Detailed)
+    ctx.save();
+    ctx.rotate(this.turretAngle);
+
+    // Barrel
+    ctx.fillStyle = COLORS.WALL;
+    ctx.fillRect(0, -2, TANK_SIZE * 0.9, 4);
+
+    // Turret cap
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, TANK_SIZE * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.restore();
+
+    // Time Warp Field Visual (v1.3.5: Rotating Digital Field)
+    if (this.timeWarpActiveUntil > Date.now()) {
+        const time = Date.now();
         ctx.save();
-        ctx.rotate(this.angle);
-        ctx.fillStyle = this.color;
-        ctx.strokeStyle = '#333';
+
+        // 1. Radial Background Gradient
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, TIME_WARP_RADIUS);
+        grad.addColorStop(0, 'rgba(0, 229, 255, 0.15)');
+        grad.addColorStop(0.7, 'rgba(0, 229, 255, 0.05)');
+        grad.addColorStop(1, 'rgba(0, 229, 255, 0)');
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 2. Outer Rotating Dashed Ring
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
+        ctx.setLineDash([10, 15]);
+        ctx.lineDashOffset = (time / 50) % 25;
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
         ctx.lineWidth = 2;
-
-        // Main hull
-        ctx.beginPath();
-        ctx.roundRect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE, 4);
-        ctx.fill();
         ctx.stroke();
 
-        // Tracks
-        ctx.fillStyle = '#444';
-        ctx.fillRect(-TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
-        ctx.fillRect(TANK_SIZE / 2 - 2, -TANK_SIZE / 2, 4, TANK_SIZE);
-        ctx.restore();
-
-        // Turret (Detailed)
-        ctx.save();
-        ctx.rotate(this.turretAngle);
-
-        // Barrel
-        ctx.fillStyle = COLORS.WALL;
-        ctx.fillRect(0, -2, TANK_SIZE * 0.9, 4);
-
-        // Turret cap
-        ctx.fillStyle = this.color;
+        // 3. Inner Rotating Arc (Counter-rotating)
         ctx.beginPath();
-        ctx.arc(0, 0, TANK_SIZE * 0.35, 0, Math.PI * 2);
-        ctx.fill();
+        const startAngle = (time / 800) % (Math.PI * 2);
+        ctx.arc(this.x, this.y, TIME_WARP_RADIUS * 0.7, startAngle, startAngle + Math.PI * 0.6);
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 4. Subtle "Scanning" Effect
+        const scanPos = (time % 2000) / 2000;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, TIME_WARP_RADIUS * scanPos, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(0, 229, 255, ${0.1 * (1 - scanPos)})`;
+        ctx.lineWidth = 1;
         ctx.stroke();
 
         ctx.restore();
-        ctx.restore();
+    }
 
-        // Time Warp Field Visual (v1.3.5: Rotating Digital Field)
-        if (this.timeWarpActiveUntil > Date.now()) {
-            const time = Date.now();
-            ctx.save();
-
-            // 1. Radial Background Gradient
-            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, TIME_WARP_RADIUS);
-            grad.addColorStop(0, 'rgba(0, 229, 255, 0.15)');
-            grad.addColorStop(0.7, 'rgba(0, 229, 255, 0.05)');
-            grad.addColorStop(1, 'rgba(0, 229, 255, 0)');
-
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            // 2. Outer Rotating Dashed Ring
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
-            ctx.setLineDash([10, 15]);
-            ctx.lineDashOffset = (time / 50) % 25;
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // 3. Inner Rotating Arc (Counter-rotating)
-            ctx.beginPath();
-            const startAngle = (time / 800) % (Math.PI * 2);
-            ctx.arc(this.x, this.y, TIME_WARP_RADIUS * 0.7, startAngle, startAngle + Math.PI * 0.6);
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
-            ctx.lineWidth = 4;
-            ctx.stroke();
-
-            // 4. Subtle "Scanning" Effect
-            const scanPos = (time % 2000) / 2000;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, TIME_WARP_RADIUS * scanPos, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(0, 229, 255, ${0.1 * (1 - scanPos)})`;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            ctx.restore();
-        }
-
-        // Power-up Indicator above tank
-        if (this.powerUp) {
-            ctx.save();
-            ctx.translate(this.x, this.y - TANK_SIZE - 10);
-            ctx.fillStyle = '#000';
-            ctx.font = 'bold 14px Orbitron';
-            ctx.textAlign = 'center';
-            if (this.powerUp === 'homing') {
-                ctx.beginPath();
-                ctx.moveTo(0, -6);
-                ctx.lineTo(4, 4);
-                ctx.lineTo(-4, 4);
-                ctx.fill();
-            } else if (this.powerUp === 'wireless') {
-                ctx.fillText('W', 0, 0);
-            } else if (this.powerUp === 'timeWarp') {
-                ctx.fillText('⏳', 0, 0);
-            } else if (this.powerUp === 'portalGun') {
-                ctx.fillText('◎', 0, 0);
-            } else if (this.powerUp === 'ghost') {
-                ctx.fillText('☰', 0, 0);
-            }
-            ctx.restore();
-        }
-
-        this.bullets.forEach(b => b.draw());
-
-        // Player Name Label (As seen in the reference screenshots)
+    // Power-up Indicator above tank
+    if (this.powerUp) {
         ctx.save();
-        ctx.translate(this.x, this.y - TANK_SIZE - 20);
-        ctx.fillStyle = '#666';
-        ctx.font = '14px sans-serif';
+        ctx.translate(this.x, this.y - TANK_SIZE - 10);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px Orbitron';
         ctx.textAlign = 'center';
-        ctx.fillText(this.name, 0, 0);
+        if (this.powerUp === 'homing') {
+            ctx.beginPath();
+            ctx.moveTo(0, -6);
+            ctx.lineTo(4, 4);
+            ctx.lineTo(-4, 4);
+            ctx.fill();
+        } else if (this.powerUp === 'wireless') {
+            ctx.fillText('W', 0, 0);
+        } else if (this.powerUp === 'timeWarp') {
+            ctx.fillText('⏳', 0, 0);
+        } else if (this.powerUp === 'portalGun') {
+            ctx.fillText('◎', 0, 0);
+        } else if (this.powerUp === 'ghost') {
+            ctx.fillText('☰', 0, 0);
+        }
         ctx.restore();
     }
 
-    checkBulletHit(bullet) {
-        if (!this.alive || !bullet.active) return false;
+    this.bullets.forEach(b => b.draw());
 
-        // Own bullet immunity for 500ms
-        if (bullet.owner === this.id && Date.now() - bullet.birth < 1000) return false;
+    // Player Name Label (As seen in the reference screenshots)
+    ctx.save();
+    ctx.translate(this.x, this.y - TANK_SIZE - 20);
+    ctx.fillStyle = '#666';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.name, 0, 0);
+    ctx.restore();
+}
 
-        const dist = Math.sqrt((this.x - bullet.x) ** 2 + (this.y - bullet.y) ** 2);
-        return dist < TANK_SIZE / 2 + BULLET_RADIUS;
-    }
+checkBulletHit(bullet) {
+    if (!this.alive || !bullet.active) return false;
+
+    // Own bullet immunity for 500ms
+    if (bullet.owner === this.id && Date.now() - bullet.birth < 1000) return false;
+
+    const dist = Math.sqrt((this.x - bullet.x) ** 2 + (this.y - bullet.y) ** 2);
+    return dist < TANK_SIZE / 2 + BULLET_RADIUS;
+}
 }
 
 // Game State
@@ -1113,21 +1118,14 @@ function update() {
     // Handle Power-up spawning (Max 5 boxes)
     if (Date.now() > nextPowerUpTime && powerUps.filter(p => p.active).length < 5) {
         const pos = maze.getRandomEmptyCell();
-        const types = ['homing', 'homing', 'ghost', 'ghost', 'wireless', 'wireless', 'timeWarp', 'portalGun'];
-        const type = types[Math.floor(Math.random() * types.length)]; // Equal 1/3 odds
+        const types = ['homing', 'homing', 'ghost', 'ghost', 'wireless', 'wireless', 'timeWarp', 'portalGun', 'shield'];
+        const type = types[Math.floor(Math.random() * types.length)];
 
         powerUps.push(new PowerUp(pos.x, pos.y, type));
         scheduleNextPowerUp();
     }
 
-    // Handle Portal Lifespan (20 seconds)
-    if (portals.blue && Date.now() - portals.blue.birth > 20000) {
-        portals.blue = null;
-        portals.orange = null;
-    } else if (portals.orange && Date.now() - portals.orange.birth > 20000) {
-        portals.blue = null;
-        portals.orange = null;
-    }
+    // Portals now persist until round end (Handled in initRound)
 
     tanks.forEach(tank => tank.update(maze));
 
@@ -1150,9 +1148,14 @@ function update() {
         tanks.forEach(otherTank => {
             otherTank.bullets.forEach(bullet => {
                 if (tank.checkBulletHit(bullet)) {
-                    // Friendly fire check or own bullet check is skipped to match original "trouble" logic
-                    tank.alive = false;
-                    bullet.active = false;
+                    if (tank.hasShield && Date.now() < tank.shieldActiveUntil) {
+                        tank.hasShield = false;
+                        tank.shieldActiveUntil = 0;
+                        bullet.active = false;
+                    } else {
+                        tank.alive = false;
+                        bullet.active = false;
+                    }
                 }
             });
         });
