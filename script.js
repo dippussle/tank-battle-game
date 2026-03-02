@@ -1088,57 +1088,24 @@ let matchmakingInterval = null;
 
 const lobbyOverlay = document.getElementById('lobby-overlay');
 const lobbyStatus = document.getElementById('lobby-status');
+const GLOBAL_LOBBY_ID = "TANK_BATTLE_LOBBY_REBORN_4P_V2"; // New ID for v1.4.2
 
 function startOnline() {
     isOnline = true;
     gameState = 'LOBBY';
     menuOverlay.classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
+    lobbyStatus.textContent = "Initializing connection...";
 
-    // Initialize Peer
-    peer = new Peer();
+    // Try to become the HOST first by taking the global ID
+    peer = new Peer(GLOBAL_LOBBY_ID);
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = "Connecting to matchmaking...";
-        joinMatchmaking();
-    });
-
-    peer.on('connection', (conn) => {
-        setupConnection(conn);
-    });
-
-    peer.on('error', (err) => {
-        console.error("Peer Error:", err);
-        lobbyStatus.textContent = "Connection Error: " + err.type;
-    });
-}
-
-function joinMatchmaking() {
-    // Basic Matchmaking: Connect to a global room or become host
-    const lobbyId = "TANK_BATTLE_LOBBY_GLOBAL_4P_V1";
-
-    const conn = peer.connect(lobbyId);
-    setupConnection(conn);
-
-    // If no one is using the ID, we can't "connect" to it as a host.
-    // PeerJS usually requires us to 'listen' on an ID.
-    // For this prototype, if connection fails, we restart as the Global Lobby host.
-    conn.on('error', () => {
-        if (!isHost) {
-            startAsHost(lobbyId);
-        }
-    });
-}
-
-function startAsHost(id) {
-    if (peer) peer.destroy();
-    peer = new Peer(id);
-    isHost = true;
-
-    peer.on('open', () => {
-        lobbyStatus.textContent = "Hosting Global Lobby... (1/4)";
-        onlinePlayers = [{ peerId: id, slotIndex: 0 }];
+        isHost = true;
+        lobbyStatus.textContent = "Lobby Created. Waiting for players... (1/4)";
+        onlinePlayers = [{ peerId: id }];
+        updateLobbyUI(onlinePlayers);
     });
 
     peer.on('connection', (conn) => {
@@ -1148,7 +1115,39 @@ function startAsHost(id) {
             conn.on('open', () => conn.send({ type: 'LOBBY_FULL' }));
         }
     });
+
+    peer.on('error', (err) => {
+        if (err.type === 'id-taken') {
+            // Host exists! Become a CLIENT instead
+            console.log("Host already exists, joining as client...");
+            startAsClient();
+        } else {
+            console.error("Peer Error:", err);
+            lobbyStatus.textContent = "Connection Error: " + err.type;
+        }
+    });
 }
+
+function startAsClient() {
+    isHost = false;
+    if (peer) peer.destroy();
+
+    peer = new Peer(); // Random ID
+
+    peer.on('open', (id) => {
+        myPeerId = id;
+        lobbyStatus.textContent = "Connecting to Lobby...";
+        const conn = peer.connect(GLOBAL_LOBBY_ID);
+        setupConnection(conn);
+    });
+
+    peer.on('error', (err) => {
+        console.error("Client Peer Error:", err);
+        lobbyStatus.textContent = "Failed to join: " + err.type;
+    });
+}
+
+// Removed startAsHost as it's merged into startOnline Host-First logic
 
 function cancelOnline() {
     isOnline = false;
