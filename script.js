@@ -250,7 +250,8 @@ class Maze {
                     (cell.walls.left ? 1 : 0) + (cell.walls.right ? 1 : 0);
 
                 if (totalWalls >= 3 && wallList.length > 0) {
-                    const wallToBurn = wallList[Math.floor(rng() * wallList.length)];
+                    const idx = Math.floor(rng() * wallList.length);
+                    const wallToBurn = wallList[Math.min(idx, wallList.length - 1)];
                     if (wallToBurn === 'top') {
                         this.cells[r][c].walls.top = false;
                         this.cells[r - 1][c].walls.bottom = false;
@@ -1370,9 +1371,6 @@ function handleNetworkData(data, conn) {
             updateLobbyUI(data.players);
             break;
         case 'START_ROUND':
-            isOnline = true;
-            gameState = 'PLAYING';
-            lobbyOverlay.classList.add('hidden');
             handleRemoteRoundStart(data);
             break;
         case 'TANK_UPDATE':
@@ -1695,6 +1693,7 @@ function seedRandom(seed) {
 }
 function seededRandom() {
     nextRandom = (nextRandom * 16807) % 2147483647;
-    // Ensure the result is in [0, 1) to avoid index out of bounds
-    return (nextRandom - 1) / 2147483647;
+    if (nextRandom <= 0) nextRandom = 1;
+    // Map to [0, 1) range safely
+    return (nextRandom - 1) / 2147483646;
 }
