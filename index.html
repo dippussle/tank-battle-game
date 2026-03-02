@@ -56,6 +56,10 @@
             <div id="lobby-overlay" class="overlay hidden">
                 <div class="menu-content">
                     <h1>ONLINE LOBBY</h1>
+                    <div id="room-code-container" class="hidden">
+                        <p>ROOM CODE:</p>
+                        <div id="room-code-display" class="room-code-display">-----</div>
+                    </div>
                     <p id="lobby-status">Connecting to matchmaking...</p>
                     <div id="player-labels" class="lobby-players">
                         <div class="player-slot" id="slot-1">P1: Waiting...</div>
@@ -66,8 +70,21 @@
                     <p style="margin-top: 20px; font-size: 0.8rem; color: #888;">Game starts automatically at 4 players
                     </p>
                     <div class="button-group" style="margin-top: 20px;">
-                        <button class="menu-btn secondary" onclick="startOnline()">Refresh</button>
+                        <button class="menu-btn secondary" id="refresh-lobby-btn"
+                            onclick="startOnline()">Refresh</button>
                         <button class="menu-btn" onclick="cancelOnline()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="join-room-overlay" class="overlay hidden">
+                <div class="menu-content">
+                    <h1>JOIN ROOM</h1>
+                    <p>Enter the 5-character code:</p>
+                    <input type="text" id="join-room-input" class="room-input" maxlength="5" placeholder="CODE">
+                    <div class="button-group">
+                        <button class="menu-btn" onclick="confirmJoin()">Connect</button>
+                        <button class="menu-btn secondary" onclick="closeJoinUI()">Back</button>
                     </div>
                 </div>
             </div>

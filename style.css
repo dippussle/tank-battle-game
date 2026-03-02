@@ -260,6 +260,40 @@ button.menu-btn:hover {
     border-color: var(--p1-color) !important;
 }
 
+.room-code-display {
+    font-size: 2.2rem;
+    font-family: var(--font-heading);
+    color: var(--p4-color);
+    letter-spacing: 6px;
+    margin: 1rem 0;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    text-shadow: 0 0 10px rgba(255, 235, 59, 0.3);
+}
+
+.room-input {
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid white;
+    color: white;
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    padding: 12px;
+    text-align: center;
+    width: 220px;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.room-input:focus {
+    border-color: var(--p2-color);
+    box-shadow: 0 0 15px rgba(68, 138, 255, 0.4);
+}
+
 /* Version Tag */
 #version-tag {
     position: fixed;
