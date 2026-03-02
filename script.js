@@ -1254,7 +1254,10 @@ function setupConnection(conn) {
 
     conn.on('open', () => {
         clearTimeout(connectionTimeout);
-        connections.push(conn);
+        if (!connections.includes(conn)) {
+            connections.push(conn);
+        }
+
         if (!isHost) {
             lobbyStatus.textContent = "Joining Room...";
             if (joinHeartbeat) clearInterval(joinHeartbeat);
@@ -1265,8 +1268,6 @@ function setupConnection(conn) {
                     clearInterval(joinHeartbeat);
                 }
             }, 1000);
-        } else {
-            broadcastLobby();
         }
     });
 
@@ -1308,14 +1309,28 @@ function handleNetworkData(data, conn) {
     switch (data.type) {
         case 'JOIN':
             if (isHost) {
-                // Check if already in lobby
-                if (!onlinePlayers.find(p => p.peerId === data.peerId)) {
+                // Check if already in lobby by peerId
+                let existingPlayer = onlinePlayers.find(p => p.peerId === data.peerId);
+                if (!existingPlayer) {
+                    console.log("New player joined:", data.peerId);
                     onlinePlayers.push({ peerId: data.peerId, conn: conn });
-                    console.log("Player joined:", data.peerId);
+                } else {
+                    // Update connection if it changed (e.g. reconnect)
+                    existingPlayer.conn = conn;
                 }
+
+                // Ensure this connection is in our global list for broadcasts
+                if (!connections.includes(conn)) {
+                    connections.push(conn);
+                }
+
                 // Send ACK to the joining client specifically
-                conn.send({ type: 'JOIN_ACK', players: onlinePlayers.map(p => ({ peerId: p.peerId })) });
+                const playersInfo = onlinePlayers.map(p => ({ peerId: p.peerId }));
+                conn.send({ type: 'JOIN_ACK', players: playersInfo });
+
+                // Tell everyone else
                 broadcastLobby();
+
                 if (onlinePlayers.length === 4) {
                     initOnlineRound();
                 }
