@@ -1088,9 +1088,15 @@ let matchmakingInterval = null;
 
 const lobbyOverlay = document.getElementById('lobby-overlay');
 const lobbyStatus = document.getElementById('lobby-status');
-// v1.4.6: Rotating ID to avoid zombie rooms
-const LOBBY_VERSION = "V146";
-const GLOBAL_LOBBY_ID = `TANK_BATTLE_GLB_${LOBBY_VERSION}`;
+
+function generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
 
 let currentLobbyIndex = 1;
 const MAX_LOBBIES = 3;
@@ -1101,19 +1107,25 @@ function startAsHost() {
     isHost = true;
     menuOverlay.classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
-    lobbyStatus.textContent = "Creating Lobby...";
+    lobbyStatus.textContent = "Initializing Room...";
+
+    const code = generateRoomCode();
+    const fullRoomId = `TANK_ROOM_${code}`;
+
+    document.getElementById('room-code-container').classList.remove('hidden');
+    document.getElementById('room-code-display').textContent = code;
+    document.getElementById('refresh-lobby-btn').classList.add('hidden');
 
     if (peer) {
         peer.removeAllListeners();
         peer.destroy();
     }
 
-    // Explicitly try to take the global ID
-    peer = new Peer(GLOBAL_LOBBY_ID);
+    peer = new Peer(fullRoomId);
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = `Lobby Mode: HOST (#1)`;
+        lobbyStatus.textContent = "Waiting for players... (1/4)";
         onlinePlayers = [{ peerId: id }];
         updateLobbyUI(onlinePlayers);
     });
@@ -1132,7 +1144,7 @@ function startAsHost() {
     peer.on('error', (err) => {
         console.error("Host Error:", err.type);
         if (err.type === 'id-taken') {
-            alert("A game is already being hosted! Please click 'Join Online' instead.");
+            alert("This room ID is already in use. Try hosting again.");
             cancelOnline();
         } else {
             lobbyStatus.textContent = "Error: " + err.type;
@@ -1141,44 +1153,66 @@ function startAsHost() {
 }
 
 function startAsJoin() {
+    menuOverlay.classList.add('hidden');
+    document.getElementById('join-room-overlay').classList.remove('hidden');
+    const input = document.getElementById('join-room-input');
+    input.value = '';
+    input.focus();
+}
+
+function closeJoinUI() {
+    document.getElementById('join-room-overlay').classList.add('hidden');
+    menuOverlay.classList.remove('hidden');
+}
+
+function confirmJoin() {
+    const code = document.getElementById('join-room-input').value.toUpperCase().trim();
+    if (code.length < 5) {
+        alert("Please enter a valid 5-character code.");
+        return;
+    }
+
     isOnline = true;
     gameState = 'LOBBY';
     isHost = false;
-    menuOverlay.classList.add('hidden');
+    document.getElementById('join-room-overlay').classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
-    lobbyStatus.textContent = "Searching for Lobby...";
+    document.getElementById('room-code-container').classList.add('hidden');
+    document.getElementById('refresh-lobby-btn').classList.remove('hidden');
+    lobbyStatus.textContent = `Connecting to ${code}...`;
+
+    const fullRoomId = `TANK_ROOM_${code}`;
 
     if (peer) {
         peer.removeAllListeners();
         peer.destroy();
     }
 
-    peer = new Peer(); // Random client ID
+    peer = new Peer();
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = `Joining Lobby #${id.slice(-4)}...`;
-
-        const conn = peer.connect(GLOBAL_LOBBY_ID, { reliable: true });
+        const conn = peer.connect(fullRoomId, { reliable: true });
 
         let joinTimeout = setTimeout(() => {
             if (!conn.open) {
-                alert("Lobby not found! Make sure the Host has started the game.");
+                alert("Room not found! Check the code and ensure the Host is active.");
                 cancelOnline();
             }
-        }, 5000);
+        }, 7000);
 
         setupConnection(conn);
 
         conn.on('open', () => {
             clearTimeout(joinTimeout);
+            lobbyStatus.textContent = `Connected to Room: ${code}`;
         });
     });
 
     peer.on('error', (err) => {
         console.error("Join Error:", err.type);
         if (err.type === 'peer-unavailable') {
-            alert("Lobby not found! Make sure the Host has started the game.");
+            alert("Room not found!");
             cancelOnline();
         } else {
             lobbyStatus.textContent = "Error: " + err.type;
@@ -1200,6 +1234,7 @@ function cancelOnline() {
     connections = [];
     onlinePlayers = [];
     lobbyOverlay.classList.add('hidden');
+    document.getElementById('join-room-overlay').classList.add('hidden');
     menuOverlay.classList.remove('hidden');
 }
 
