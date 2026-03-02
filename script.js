@@ -1107,13 +1107,12 @@ function startAsHost() {
     isHost = true;
     menuOverlay.classList.add('hidden');
     lobbyOverlay.classList.remove('hidden');
-    lobbyStatus.textContent = "Initializing Room...";
-
     const code = generateRoomCode();
     const fullRoomId = `TANK_ROOM_${code}`;
 
+    // Show UI immediately
     document.getElementById('room-code-container').classList.remove('hidden');
-    document.getElementById('room-code-display').textContent = code;
+    document.getElementById('room-code-display').textContent = "..."; // Pending
     document.getElementById('refresh-lobby-btn').classList.add('hidden');
 
     if (peer) {
@@ -1121,11 +1120,13 @@ function startAsHost() {
         peer.destroy();
     }
 
+    lobbyStatus.textContent = "Connecting to PeerServer...";
     peer = new Peer(fullRoomId);
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = "Waiting for players... (1/4)";
+        document.getElementById('room-code-display').textContent = code;
+        lobbyStatus.textContent = "Lobby Created. Share the code! (1/4)";
         onlinePlayers = [{ peerId: id }];
         updateLobbyUI(onlinePlayers);
     });
@@ -1179,7 +1180,8 @@ function confirmJoin() {
     lobbyOverlay.classList.remove('hidden');
     document.getElementById('room-code-container').classList.add('hidden');
     document.getElementById('refresh-lobby-btn').classList.remove('hidden');
-    lobbyStatus.textContent = `Connecting to ${code}...`;
+
+    lobbyStatus.textContent = "Connecting to Server...";
 
     const fullRoomId = `TANK_ROOM_${code}`;
 
@@ -1192,20 +1194,22 @@ function confirmJoin() {
 
     peer.on('open', (id) => {
         myPeerId = id;
+        lobbyStatus.textContent = `Connecting to Room: ${code}...`;
         const conn = peer.connect(fullRoomId, { reliable: true });
 
+        // Increased timeout for slow connections
         let joinTimeout = setTimeout(() => {
-            if (!conn.open) {
-                alert("Room not found! Check the code and ensure the Host is active.");
+            if (gameState === 'LOBBY' && !conn.open) {
+                alert("Connection failed! Check the code and your internet. PeerJS servers might be slow.");
                 cancelOnline();
             }
-        }, 7000);
+        }, 12000);
 
         setupConnection(conn);
 
         conn.on('open', () => {
             clearTimeout(joinTimeout);
-            lobbyStatus.textContent = `Connected to Room: ${code}`;
+            lobbyStatus.textContent = `Successfully Entered Room: ${code}`;
         });
     });
 
