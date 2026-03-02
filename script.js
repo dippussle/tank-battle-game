@@ -172,6 +172,7 @@ class Maze {
     }
 
     generate() {
+        // 1. Standard DFS Spanning Tree (Guarantees every cell is reachable)
         const stack = [];
         let current = { r: 0, c: 0 };
         this.cells[0][0].visited = true;
@@ -189,8 +190,6 @@ class Maze {
             const neighbors = getUnvisitedNeighbors(current.r, current.c);
             if (neighbors.length > 0) {
                 const next = neighbors[Math.floor(Math.random() * neighbors.length)];
-
-                // Remove walls
                 if (next.dir === 'top') {
                     this.cells[current.r][current.c].walls.top = false;
                     this.cells[next.r][next.c].walls.bottom = false;
@@ -204,7 +203,6 @@ class Maze {
                     this.cells[current.r][current.c].walls.right = false;
                     this.cells[next.r][next.c].walls.left = false;
                 }
-
                 this.cells[next.r][next.c].visited = true;
                 stack.push(current);
                 current = { r: next.r, c: next.c };
@@ -215,52 +213,53 @@ class Maze {
             }
         }
 
-        // Guaranteed Passages: Ensure the map isn't split in two by clearing middle walls
-        const midR = Math.floor(this.rows / 2);
-        const midC = Math.floor(this.cols / 2);
-
-        // Horizontal passage across the middle column
-        for (let i = 0; i < 3; i++) {
-            const r = Math.floor(Math.random() * (this.rows - 1));
-            this.cells[r][midC].walls.right = false;
-            this.cells[r][midC + 1].walls.left = false;
-        }
-        // Vertical passage across the middle row
-        for (let i = 0; i < 3; i++) {
-            const c = Math.floor(Math.random() * (this.cols - 1));
-            this.cells[midR][c].walls.bottom = false;
-            this.cells[midR + 1][c].walls.top = false;
-        }
-
-        // Add more random holes (Braid) to increase flow (1/3 cells)
-        for (let i = 0; i < (this.rows * this.cols) / 3; i++) {
-            const r = Math.floor(Math.random() * this.rows);
-            const c = Math.floor(Math.random() * this.cols);
-
-            const cell = this.cells[r][c];
-            let wallCount = 0;
-            if (cell.walls.top) wallCount++;
-            if (cell.walls.bottom) wallCount++;
-            if (cell.walls.left) wallCount++;
-            if (cell.walls.right) wallCount++;
-
-            // Only remove if it's a dead-end OR a low random chance to avoid total openness
-            if (wallCount >= 3 || Math.random() < 0.2) {
-                const walls = Object.keys(cell.walls);
-                const wall = walls[Math.floor(Math.random() * walls.length)];
-
-                if (wall === 'top' && r > 0) {
-                    this.cells[r][c].walls.top = false;
-                    this.cells[r - 1][c].walls.bottom = false;
-                } else if (wall === 'bottom' && r < this.rows - 1) {
-                    this.cells[r][c].walls.bottom = false;
-                    this.cells[r + 1][c].walls.top = false;
-                } else if (wall === 'left' && c > 0) {
-                    this.cells[r][c].walls.left = false;
-                    this.cells[r][c - 1].walls.right = false;
-                } else if (wall === 'right' && c < this.cols - 1) {
+        // 2. High-Probability Braid: Remove many internal walls to create loops and open spaces
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                // Randomly remove right wall (if not on edge)
+                if (c < this.cols - 1 && Math.random() < 0.35) {
                     this.cells[r][c].walls.right = false;
                     this.cells[r][c + 1].walls.left = false;
+                }
+                // Randomly remove bottom wall (if not on edge)
+                if (r < this.rows - 1 && Math.random() < 0.35) {
+                    this.cells[r][c].walls.bottom = false;
+                    this.cells[r + 1][c].walls.top = false;
+                }
+            }
+        }
+
+        // 3. Dead-end Elimination: Second pass to ensure NO cell has 3+ walls
+        // This ensures every room has at least 2 exits.
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                let cell = this.cells[r][c];
+                let wallList = [];
+                if (cell.walls.top && r > 0) wallList.push('top');
+                if (cell.walls.bottom && r < this.rows - 1) wallList.push('bottom');
+                if (cell.walls.left && c > 0) wallList.push('left');
+                if (cell.walls.right && c < this.cols - 1) wallList.push('right');
+
+                // If it's a dead end (3 internal/border walls, but we filter only removable ones)
+                // Actually let's just count total walls.
+                let totalWalls = (cell.walls.top ? 1 : 0) + (cell.walls.bottom ? 1 : 0) +
+                    (cell.walls.left ? 1 : 0) + (cell.walls.right ? 1 : 0);
+
+                if (totalWalls >= 3 && wallList.length > 0) {
+                    const wallToBurn = wallList[Math.floor(Math.random() * wallList.length)];
+                    if (wallToBurn === 'top') {
+                        this.cells[r][c].walls.top = false;
+                        this.cells[r - 1][c].walls.bottom = false;
+                    } else if (wallToBurn === 'bottom') {
+                        this.cells[r][c].walls.bottom = false;
+                        this.cells[r + 1][c].walls.top = false;
+                    } else if (wallToBurn === 'left') {
+                        this.cells[r][c].walls.left = false;
+                        this.cells[r][c - 1].walls.right = false;
+                    } else if (wallToBurn === 'right') {
+                        this.cells[r][c].walls.right = false;
+                        this.cells[r][c + 1].walls.left = false;
+                    }
                 }
             }
         }
