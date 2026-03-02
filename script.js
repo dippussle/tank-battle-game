@@ -41,8 +41,12 @@ class Joystick {
     constructor(containerId, onChange) {
         this.container = document.getElementById(containerId);
         if (!this.container) return;
-        if (this.container._joystick) return this.container._joystick;
+        if (this.container._joystick) {
+            this.container._joystick.onChange = onChange;
+            return this.container._joystick;
+        }
         this.container._joystick = this;
+        this.onChange = onChange;
 
         this.knob = document.createElement('div');
         this.knob.className = 'joystick-knob';
@@ -916,7 +920,11 @@ class Tank {
 
         // Main hull
         ctx.beginPath();
-        ctx.roundRect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE, 4);
+        if (ctx.roundRect) {
+            ctx.roundRect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE, 4);
+        } else {
+            ctx.rect(-TANK_SIZE / 2, -TANK_SIZE / 2, TANK_SIZE, TANK_SIZE);
+        }
         ctx.fill();
         ctx.stroke();
 
@@ -1406,56 +1414,62 @@ function initOnlineRound() {
 }
 
 function handleRemoteRoundStart(data) {
-    console.log("Starting network round...");
-    seedRandom(data.seed);
-    maze = new Maze(ROWS, COLS);
-    tanks = [];
-    powerUps = [];
-    portals = { blue: null, orange: null };
-    roundEnded = false;
-    winnerOverlay.classList.add('hidden');
+    try {
+        console.log("Starting network round...");
+        seedRandom(data.seed);
+        maze = new Maze(ROWS, COLS);
+        tanks = [];
+        powerUps = [];
+        portals = { blue: null, orange: null };
+        roundEnded = false;
+        winnerOverlay.classList.add('hidden');
 
-    playerCount = data.players.length;
-    const spawnPoints = [
-        { x: CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: 0 },
-        { x: canvas.width - CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: Math.PI },
-        { x: CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: -Math.PI / 2 },
-        { x: canvas.width - CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: Math.PI / 2 }
-    ];
+        playerCount = data.players.length;
+        const spawnPoints = [
+            { x: CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: 0 },
+            { x: canvas.width - CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: Math.PI },
+            { x: CELL_SIZE * 0.5, y: canvas.height - CELL_SIZE * 0.5, angle: -Math.PI / 2 },
+            { x: canvas.width - CELL_SIZE * 0.5, y: CELL_SIZE * 0.5, angle: Math.PI / 2 }
+        ];
 
-    data.players.forEach((pId, i) => {
-        const config = PLAYER_CONFIGS[i];
-        const tank = new Tank(config.id, config.name, config.color, spawnPoints[i], config.controls);
-        tank.peerId = pId;
-        tank.isRemote = (pId !== myPeerId);
-        tanks.push(tank);
+        data.players.forEach((pId, i) => {
+            const config = PLAYER_CONFIGS[i];
+            const tank = new Tank(config.id, config.name, config.color, spawnPoints[i], config.controls);
+            tank.peerId = pId;
+            tank.isRemote = (pId !== myPeerId);
+            tanks.push(tank);
 
-        if (!tank.isRemote) {
-            // Local Player Setup
-            const controlId = `p${i + 1}-controls`;
-            document.querySelectorAll('.touch-controls').forEach(el => el.classList.add('hidden'));
-            const controlEl = document.getElementById(controlId);
-            if (controlEl) {
-                controlEl.classList.remove('hidden');
-                let joy = document.getElementById(`p${i + 1}-joystick`)._joystick;
-                if (!joy) joy = new Joystick(`p${i + 1}-joystick`, (input) => tank.joystickInput = input);
-                else joy.onChange = (input) => tank.joystickInput = input;
+            if (!tank.isRemote) {
+                // Local Player Setup
+                const controlId = `p${i + 1}-controls`;
+                document.querySelectorAll('.touch-controls').forEach(el => el.classList.add('hidden'));
+                const controlEl = document.getElementById(controlId);
+                if (controlEl) {
+                    controlEl.classList.remove('hidden');
+                    let joyEl = document.getElementById(`p${i + 1}-joystick`);
+                    if (joyEl) {
+                        let joy = new Joystick(`p${i + 1}-joystick`, (input) => tank.joystickInput = input);
+                    }
 
-                const fireBtn = document.getElementById(`p${i + 1}-fire`);
-                if (fireBtn) {
-                    const newFireBtn = fireBtn.cloneNode(true);
-                    fireBtn.parentNode.replaceChild(newFireBtn, fireBtn);
-                    newFireBtn.addEventListener('mousedown', () => tank.firePressed = true);
-                    newFireBtn.addEventListener('mouseup', () => tank.firePressed = false);
-                    newFireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
-                    newFireBtn.addEventListener('touchend', () => tank.firePressed = false);
+                    const fireBtn = document.getElementById(`p${i + 1}-fire`);
+                    if (fireBtn) {
+                        const newFireBtn = fireBtn.cloneNode(true);
+                        fireBtn.parentNode.replaceChild(newFireBtn, fireBtn);
+                        newFireBtn.addEventListener('mousedown', () => tank.firePressed = true);
+                        newFireBtn.addEventListener('mouseup', () => tank.firePressed = false);
+                        newFireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tank.firePressed = true; });
+                        newFireBtn.addEventListener('touchend', () => tank.firePressed = false);
+                    }
                 }
             }
-        }
-    });
+        });
 
-    gameState = 'PLAYING';
-    lobbyOverlay.classList.add('hidden');
+        gameState = 'PLAYING';
+        lobbyOverlay.classList.add('hidden');
+    } catch (err) {
+        console.error("CRITICAL CRASH during round start:", err);
+        alert("Game crashed during start! Please check console.");
+    }
 }
 
 function handleRemoteTankSync(data) {
