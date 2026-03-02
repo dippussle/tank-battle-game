@@ -218,12 +218,12 @@ class Maze {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 // Randomly remove right wall (if not on edge)
-                if (c < this.cols - 1 && Math.random() < 0.35) {
+                if (c < this.cols - 1 && Math.random() < 0.12) {
                     this.cells[r][c].walls.right = false;
                     this.cells[r][c + 1].walls.left = false;
                 }
                 // Randomly remove bottom wall (if not on edge)
-                if (r < this.rows - 1 && Math.random() < 0.35) {
+                if (r < this.rows - 1 && Math.random() < 0.12) {
                     this.cells[r][c].walls.bottom = false;
                     this.cells[r + 1][c].walls.top = false;
                 }
