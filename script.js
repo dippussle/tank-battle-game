@@ -1088,7 +1088,9 @@ let matchmakingInterval = null;
 
 const lobbyOverlay = document.getElementById('lobby-overlay');
 const lobbyStatus = document.getElementById('lobby-status');
-const GLOBAL_LOBBY_ID = "TANK_BATTLE_LOBBY_REBORN_4P_V2"; // New ID for v1.4.2
+// v1.4.6: Rotating ID to avoid zombie rooms
+const LOBBY_VERSION = "V146";
+const GLOBAL_LOBBY_ID = `TANK_BATTLE_GLB_${LOBBY_VERSION}`;
 
 function startOnline() {
     isOnline = true;
@@ -1103,7 +1105,7 @@ function startOnline() {
     peer.on('open', (id) => {
         myPeerId = id;
         isHost = true;
-        lobbyStatus.textContent = "Lobby Created. Waiting for players... (1/4)";
+        lobbyStatus.textContent = `Lobby Created (ID: ${id.slice(-4)}). Waiting... (1/4)`;
         onlinePlayers = [{ peerId: id }];
         updateLobbyUI(onlinePlayers);
     });
@@ -1147,20 +1149,32 @@ function startAsClient() {
 
     peer.on('open', (id) => {
         myPeerId = id;
-        lobbyStatus.textContent = "Searching for Lobby...";
+        lobbyStatus.textContent = `Client ID: ${id.slice(-4)} - Searching Lobby...`;
+
+        let clientConnectTimeout = setTimeout(() => {
+            if (gameState === 'LOBBY' && !isHost) {
+                console.log("Client connection attempt timed out, retrying as host...");
+                startOnline();
+            }
+        }, 8000);
+
         setTimeout(() => {
             if (peer && !peer.destroyed) {
-                const conn = peer.connect(GLOBAL_LOBBY_ID);
+                const conn = peer.connect(GLOBAL_LOBBY_ID, {
+                    reliable: true,
+                    timeout: 5000
+                });
                 setupConnection(conn);
+                clearTimeout(clientConnectTimeout);
             }
-        }, 1000); // Wait for signaling server to register new ID
+        }, 1200);
     });
 
     peer.on('error', (err) => {
         console.error("Client Peer Error:", err);
-        if (err.type === 'peer-unavailable') {
-            lobbyStatus.textContent = "Lobby not found. Retrying as Host...";
-            setTimeout(startOnline, 2000);
+        if (err.type === 'peer-unavailable' || err.type === 'network') {
+            lobbyStatus.textContent = "Lobby offline or Busy. Retrying...";
+            setTimeout(startOnline, 3000);
         }
     });
 }
@@ -1181,19 +1195,18 @@ function cancelOnline() {
 function setupConnection(conn) {
     let connectionTimeout = setTimeout(() => {
         if (!conn.open) {
-            console.log("Connection timeout...");
-            lobbyStatus.textContent = "Connection Timeout. Retrying...";
+            console.log("Handshake timeout...");
+            lobbyStatus.textContent = "Lobby Busy. Retrying...";
             cancelOnline();
-            setTimeout(startOnline, 2000);
+            setTimeout(startOnline, 2500);
         }
-    }, 10000);
+    }, 12000);
 
     conn.on('open', () => {
         clearTimeout(connectionTimeout);
         connections.push(conn);
         if (!isHost) {
-            lobbyStatus.textContent = "Handshaking with Host...";
-            // Join Heartbeat: Keep sending JOIN until we get a LOBBY_UPDATE
+            lobbyStatus.textContent = "Joining Room...";
             if (joinHeartbeat) clearInterval(joinHeartbeat);
             joinHeartbeat = setInterval(() => {
                 if (conn.open) {
@@ -1201,7 +1214,7 @@ function setupConnection(conn) {
                 } else {
                     clearInterval(joinHeartbeat);
                 }
-            }, 1500);
+            }, 1000);
         } else {
             broadcastLobby();
         }
@@ -1245,11 +1258,26 @@ function handleNetworkData(data, conn) {
     switch (data.type) {
         case 'JOIN':
             if (isHost) {
-                onlinePlayers.push({ peerId: data.peerId, conn: conn });
+                // Check if already in lobby
+                if (!onlinePlayers.find(p => p.peerId === data.peerId)) {
+                    onlinePlayers.push({ peerId: data.peerId, conn: conn });
+                    console.log("Player joined:", data.peerId);
+                }
+                // Send ACK to the joining client specifically
+                conn.send({ type: 'JOIN_ACK', players: onlinePlayers.map(p => ({ peerId: p.peerId })) });
                 broadcastLobby();
                 if (onlinePlayers.length === 4) {
                     initOnlineRound();
                 }
+            }
+            break;
+        case 'JOIN_ACK':
+            if (!isHost) {
+                if (joinHeartbeat) {
+                    clearInterval(joinHeartbeat);
+                    joinHeartbeat = null;
+                }
+                updateLobbyUI(data.players);
             }
             break;
         case 'LOBBY_UPDATE':
