@@ -16,6 +16,7 @@ const MAX_BOUNCES = 1000;
 const BULLET_LIFESPAN = 5000;
 const POWERUP_SPAWN_INTERVAL = [15000, 20000]; // 15-20 seconds
 const POWERUP_SIZE = 30;
+const TIME_WARP_RADIUS = TANK_SIZE * 4;
 
 canvas.width = COLS * CELL_SIZE;
 canvas.height = ROWS * CELL_SIZE;
@@ -932,17 +933,47 @@ class Tank {
         ctx.restore();
         ctx.restore();
 
-        // Time Warp Field Visual
+        // Time Warp Field Visual (v1.3.5: Rotating Digital Field)
         if (this.timeWarpActiveUntil > Date.now()) {
+            const time = Date.now();
             ctx.save();
+
+            // 1. Radial Background Gradient
+            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, TIME_WARP_RADIUS);
+            grad.addColorStop(0, 'rgba(0, 229, 255, 0.15)');
+            grad.addColorStop(0.7, 'rgba(0, 229, 255, 0.05)');
+            grad.addColorStop(1, 'rgba(0, 229, 255, 0)');
+
             ctx.beginPath();
-            const pulse = 1 + Math.sin(Date.now() / 200) * 0.1;
-            ctx.arc(this.x, this.y, TANK_SIZE * 5 * pulse, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
-            ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
-            ctx.lineWidth = 2;
+            ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
             ctx.fill();
+
+            // 2. Outer Rotating Dashed Ring
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, TIME_WARP_RADIUS, 0, Math.PI * 2);
+            ctx.setLineDash([10, 15]);
+            ctx.lineDashOffset = (time / 50) % 25;
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+            ctx.lineWidth = 2;
             ctx.stroke();
+
+            // 3. Inner Rotating Arc (Counter-rotating)
+            ctx.beginPath();
+            const startAngle = (time / 800) % (Math.PI * 2);
+            ctx.arc(this.x, this.y, TIME_WARP_RADIUS * 0.7, startAngle, startAngle + Math.PI * 0.6);
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // 4. Subtle "Scanning" Effect
+            const scanPos = (time % 2000) / 2000;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, TIME_WARP_RADIUS * scanPos, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 229, 255, ${0.1 * (1 - scanPos)})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
             ctx.restore();
         }
 
