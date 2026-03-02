@@ -1111,8 +1111,12 @@ function startOnline() {
     peer.on('connection', (conn) => {
         if (onlinePlayers.length < 4) {
             setupConnection(conn);
+            // Host: Notify new player immediately on open (in setupConnection)
         } else {
-            conn.on('open', () => conn.send({ type: 'LOBBY_FULL' }));
+            conn.on('open', () => {
+                conn.send({ type: 'LOBBY_FULL' });
+                setTimeout(() => conn.close(), 1000);
+            });
         }
     });
 
@@ -1177,16 +1181,58 @@ function cancelOnline() {
 }
 
 function setupConnection(conn) {
+    let connectionTimeout = setTimeout(() => {
+        if (!conn.open) {
+            console.log("Connection timeout...");
+            lobbyStatus.textContent = "Connection Timeout. Retrying...";
+            cancelOnline();
+            setTimeout(startOnline, 2000);
+        }
+    }, 10000);
+
     conn.on('open', () => {
+        clearTimeout(connectionTimeout);
         connections.push(conn);
         if (!isHost) {
             conn.send({ type: 'JOIN', peerId: myPeerId });
+        } else {
+            // Push current lobby state to everyone including the newcomer
+            broadcastLobby();
         }
     });
 
     conn.on('data', (data) => {
         handleNetworkData(data, conn);
     });
+
+    conn.on('close', () => {
+        console.log("Connection closed");
+        handleDisconnect(conn);
+    });
+
+    conn.on('error', (err) => {
+        console.error("Connection Error:", err);
+        handleDisconnect(conn);
+    });
+}
+
+function handleDisconnect(conn) {
+    connections = connections.filter(c => c !== conn);
+    if (isHost) {
+        // Find which player left
+        const leftPlayer = onlinePlayers.find(p => p.conn === conn);
+        if (leftPlayer) {
+            onlinePlayers = onlinePlayers.filter(p => p !== leftPlayer);
+            broadcastLobby();
+        }
+    } else {
+        // If we are client and host left
+        if (conn.peer === GLOBAL_LOBBY_ID) {
+            lobbyStatus.textContent = "Host Disconnected. Retrying...";
+            cancelOnline();
+            setTimeout(startOnline, 3000);
+        }
+    }
 }
 
 function handleNetworkData(data, conn) {
